@@ -65,7 +65,7 @@ class Result(db.Entity):
     time_generated = Required(datetime)
     points = Required(int)
     maxforanswered = Required(int)
-    index = Required('VIndex')
+    index = Required('Index')
     user = Required(User)
     composite_index(user, index, time_generated)
 
@@ -111,7 +111,7 @@ class ResultSubComponent(db.Entity):
         return self.index_sub_component.maxpoints
 
 
-class VIndex(db.Entity):
+class Index(db.Entity):
     name = PrimaryKey(str)
     maxpoints = Required(int)
     index_components = Set('IndexComponent')
@@ -125,7 +125,7 @@ class VIndex(db.Entity):
 class IndexComponent(db.Entity):
     name = PrimaryKey(str)
     maxpoints = Required(int)
-    index = Required(VIndex)
+    index = Required(Index)
     index_sub_components = Set('IndexSubComponent')
     result_components = Set(ResultComponent)
     info = Required(LongStr)
