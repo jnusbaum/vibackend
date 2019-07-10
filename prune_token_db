@@ -3,5 +3,5 @@ DBHOST="vibackend.postgres.database.azure.com"; export DBHOST
 DATABASE="vi"; export DATABASE
 DBUSER="vi@vibackend"; export DBUSER
 DBSSLMODE="require"; export DBSSLMODE
-VIADMPATH="/home/viadm/VIINC/vi-azure-admin"; export VIADMPATH
+VIADMPATH="/home/viadm/VIINC/vidb"; export VIADMPATH
 $VIADMPATH/bin/python $VIADMPATH/prune_token_db.py >> $VIADMPATH/log/prune_token.cron.log 2>&1
