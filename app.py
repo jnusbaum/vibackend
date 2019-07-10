@@ -35,7 +35,7 @@ from blacklist_helpers import is_token_revoked, add_token_to_database
 from views import *
 
 # data model
-from vidb import *
+from vidb.models import *
 
 
 app = Flask(__name__)
