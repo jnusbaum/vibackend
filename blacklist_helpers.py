@@ -1,6 +1,6 @@
-from vidb import *
+from vidb.models import *
 from flask_jwt_extended import decode_token
-from datetime import timezone
+from datetime import datetime, timezone
 
 
 def _epoch_utc_to_datetime(epoch_utc):
@@ -11,7 +11,7 @@ def _epoch_utc_to_datetime(epoch_utc):
     return datetime.fromtimestamp(epoch_utc, tz=timezone.utc)
 
 
-def add_token_to_database(encoded_token, user):
+def add_token_to_database(encoded_token, user: User) -> None:
     """
     Adds a new token to the database. It is not revoked when it is added.
     """
