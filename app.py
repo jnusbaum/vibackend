@@ -2,6 +2,7 @@
 Primary app code. Listens to email and processes submissions
 """
 import os
+from typing import Tuple, Union
 # logging
 import logging
 # pretty printing/formatting
@@ -98,7 +99,7 @@ db.bind(provider='postgres', host=app.config['DBHOST'],
 db.generate_mapping()
 
 
-def str_to_datetime(ans):
+def str_to_datetime(ans: str) -> Union[datetime, None]:
     if ans:
         d = datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
         # no tz info, assumed to be in UTC
@@ -157,7 +158,7 @@ def handle_exception(error):
     return response
 
 
-def auth_user(email, pwd) -> User:
+def auth_user(email: str, pwd: str) -> User:
     # authenticate user
     if not email:
         # not authenticated
@@ -183,7 +184,7 @@ def auth_user(email, pwd) -> User:
     return user
 
 
-def check_user(role_set) -> User:
+def check_user(role_set: Tuple[str, ...]) -> User:
     identity = get_jwt_identity()
     user_id = identity['id']
     user = None
@@ -202,7 +203,7 @@ def check_user(role_set) -> User:
     return user
 
 
-def buildmailcontent(url, token):
+def buildmailcontent(url: str, token) -> EmailMessage:
     msg = EmailMessage()
 
     # set the plain text body
@@ -231,7 +232,7 @@ def buildmailcontent(url, token):
     return msg
 
 
-def sendmail(email, url, token):
+def sendmail(email: str, url: str, token) -> None:
     msg = buildmailcontent(url, token)
     # me == the sender's email address
     # you == the recipient's email address
@@ -590,7 +591,7 @@ def answers_for_user():
     # pretty much required for useful answers unless question is specified
     aod = request.args.get('as-of-time', type=str_to_datetime)
     if aod:
-        answers = answers.order_by(Answer.question, desc(Answer.time_received))
+        answers = answers.filter(lambda a: a.time_received <= aod).order_by(Answer.question, desc(Answer.time_received))
         manswers = {}
         # assume current answers are ordered by question and time received descending
         for answer in answers:
