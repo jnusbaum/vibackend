@@ -1,6 +1,9 @@
+# data model
+from vidb.models import *
+
 class UserView:
     @classmethod
-    def render(cls, user):
+    def render(cls, user: User):
         dself = {'attributes': user.to_dict(with_lazy=True, exclude=['pword', 'id']),
                  'id': str(user.id),
                  'type': 'User',
@@ -18,7 +21,7 @@ class UserView:
 
 class AnswerView:
     @classmethod
-    def render(cls, answer):
+    def render(cls, answer: Answer):
         dself = {'attributes': answer.to_dict(with_lazy=True, exclude=['id', 'user']),
                  'id': str(answer.id),
                  'type': 'Answer',
@@ -34,7 +37,7 @@ class AnswerView:
 
 class ResultComponentView:
     @classmethod
-    def render(cls, result):
+    def render(cls, result: ResultComponent):
         dself = {'attributes': result.to_dict(with_lazy=True, exclude=['id', 'result', 'index_component']),
                  'id': str(result.id),
                  'type': 'ResultComponent',
@@ -51,7 +54,7 @@ class ResultComponentView:
 
 class ResultView:
     @classmethod
-    def render(cls, result):
+    def render(cls, result: Result):
         dself = {'attributes': result.to_dict(with_lazy=True, exclude=['id', 'user', 'index']),
                  'id': str(result.id),
                  'type': 'Result',
@@ -65,7 +68,7 @@ class ResultView:
         dself['attributes']['name'] = result.name
         # add maxpoints from indexc as attribute
         dself['attributes']['maxpoints'] = result.index.maxpoints
-        # convert time_generated to string in our format
+        # convert time to string in our format
         dself['attributes']['time_generated'] = dself['attributes']['time_generated'].strftime("%Y-%m-%d-%H-%M-%S")
         dself['attributes']['result_components'] = [ResultComponentView.render(rc) for rc in result.result_components]
         return dself
