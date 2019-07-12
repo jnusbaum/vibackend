@@ -4,8 +4,12 @@ import datetime
 import os
 
 from msrestazure.azure_active_directory import MSIAuthentication
-from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
 from azure.keyvault.key_vault_client import KeyVaultClient
+
+dbhost = os.getenv('DBHOST')
+database = os.getenv('DATABASE')
+dbuser = os.getenv('DBUSER')
+dbsslmode = os.getenv('DBSSLMODE')
 
 # Create MSI Authentication
 credentials = MSIAuthentication(resource='https://vault.azure.net')
@@ -40,11 +44,11 @@ print("connecting to %s:%s:%s" % (dbhost, database, dbuser))
 # configure from environment variables
 # these will come in secure form from azure app settings in azure deployment
 # database/pony
-db.bind(provider='postgres', host=os.getenv('DBHOST'),
-        database=os.getenv('DATABASE'),
-        user=os.getenv('DBUSER'),
+db.bind(provider='postgres', host=dbhost,
+        database=database,
+        user=dbuser,
         password=dbpwd,
-        sslmode=os.getenv('DBSSLMODE'))
+        sslmode=dbsslmode)
 db.generate_mapping()
 
 
