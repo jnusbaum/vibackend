@@ -67,6 +67,5 @@ class ResultView:
         dself['attributes']['maxpoints'] = result.index.maxpoints
         # convert time_generated to string in our format
         dself['attributes']['time_generated'] = dself['attributes']['time_generated'].strftime("%Y-%m-%d-%H-%M-%S")
-        # noinspection PyTypeChecker
         dself['attributes']['result_components'] = [ResultComponentView.render(rc) for rc in result.result_components]
         return dself
