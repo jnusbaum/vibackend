@@ -3,28 +3,37 @@ from models import *
 import datetime
 import os
 
-dbhost = os.getenv('DBHOST')
-database = os.getenv('DATABASE')
-dbuser = os.getenv('DBUSER')
-dbsslmode = os.getenv('DBSSLMODE')
+from msrestazure.azure_active_directory import MSIAuthentication
+from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
+from azure.keyvault.key_vault_client import KeyVaultClient
 
-# importing the requests library
-import requests
-  
-# Step 1: Fetch an access token from an MSI-enabled Azure resource      
-# Note that the resource here is https://vault.azure.net for the public cloud, and api-version is 2018-02-01
-MSI_ENDPOINT = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net"
-r = requests.get(MSI_ENDPOINT, headers = {"Metadata" : "true"})
+# Create MSI Authentication
+credentials = MSIAuthentication(resource='https://vault.azure.net')
+key_vault_client = KeyVaultClient(credentials)
+key_vault_uri = 'https://viinc.vault.azure.net'
+secret = key_vault_client.get_secret(key_vault_uri,  # Your KeyVault URL
+                                     "BACKEND-DB-PWD",  # Name of your secret
+                                     "")  # The version of the secret. Empty string for latest
+dbpwd = secret.value
 
-# Extracting data in JSON format 
-# This request gets an access token from Azure Active Directory by using the local MSI endpoint
-data = r.json()
 
-# Step 2: Pass the access token received from the previous HTTP GET call to the key vault
-KeyVaultURL = "https://viinc.vault.azure.net/secrets/BACKEND-DB-PWD?api-version=2016-10-01"
-kvSecret = requests.get(url = KeyVaultURL, headers = {"Authorization": "Bearer " + data["access_token"]})
-
-dbpwd = kvSecret.json()["value"]
+# # importing the requests library
+# import requests
+#
+# # Step 1: Fetch an access token from an MSI-enabled Azure resource
+# # Note that the resource here is https://vault.azure.net for the public cloud, and api-version is 2018-02-01
+# MSI_ENDPOINT = "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net"
+# r = requests.get(MSI_ENDPOINT, headers = {"Metadata" : "true"})
+#
+# # Extracting data in JSON format
+# # This request gets an access token from Azure Active Directory by using the local MSI endpoint
+# data = r.json()
+#
+# # Step 2: Pass the access token received from the previous HTTP GET call to the key vault
+# KeyVaultURL = "https://viinc.vault.azure.net/secrets/BACKEND-DB-PWD?api-version=2016-10-01"
+# kvSecret = requests.get(url = KeyVaultURL, headers = {"Authorization": "Bearer " + data["access_token"]})
+#
+# dbpwd = kvSecret.json()["value"]
 
 print("connecting to %s:%s:%s" % (dbhost, database, dbuser))
       
