@@ -1,5 +1,7 @@
 import logging
 import utilities
+from typing import Tuple, Dict, Union
+
 
 """Calculate the Major Conditions VI score
 
@@ -129,12 +131,12 @@ BelowBMIThresholdAgeRange = utilities.PointsRange(((15, 0),
                                                    (40, 4)), 0, False)
 
 
-def name():
+def name() -> str:
     return 'MEDICAL'
 
 
-def inputs():
-    inputs = ('BirthDate',
+def inputs() -> Tuple[str, ...]:
+    return ('BirthDate',
               'Height',
               'Weight'
               'NumberOfConditions',
@@ -150,10 +152,9 @@ def inputs():
               'RestingHeartRate',
               'UsedTobaccoInPast7Days',
               'UsedTobaccoInPast6Months')
-    return inputs
 
 
-def vi_points(answers):
+def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,

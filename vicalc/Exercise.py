@@ -1,5 +1,6 @@
 import logging
 import utilities
+from typing import Tuple, Dict, Union
 
 """Calculate the Exercise VI score
 
@@ -72,19 +73,18 @@ VIActivityGoalVigorousCombinedSixtyFivePlus = 60
 VIActivityGoalModerateCombinedSixtyFivePlus = 180
 
 
-def name():
+def name() -> str:
     return 'EXERCISE'
 
 
-def inputs():
-    inputs = ('BirthDate', 'MinutesVigorousExercise', 'MinutesModerateExercise',
+def inputs() -> Tuple[str, ...]:
+    return ('BirthDate', 'MinutesVigorousExercise', 'MinutesModerateExercise',
               'DaysPhysicalActivity', 'DaysResistanceExercise', 'SetsResistanceExercise', 'DaysFlexibilityExercise',
               'MinutesFlexibilityActivity', 'DaysBalanceAgilityExercise', 'MinutesBalanceAgilityActivity',
               'AverageHoursNonSedentary')
-    return inputs
 
 
-def vi_points(answers):
+def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,

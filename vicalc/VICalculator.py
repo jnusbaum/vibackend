@@ -1,32 +1,28 @@
 import logging
-
+from typing import List, Dict, Union
 import Exercise
 import Medical
 import Nutrition
-import Social
-import Perception
+import PsychoSocial
+import SelfPerceivedHealth
 
-ConstituentModules = (Exercise, Medical, Nutrition, Social, Perception)
+ConstituentModules = (Exercise, Medical, Nutrition, PsychoSocial, SelfPerceivedHealth)
 
 
-def section_names():
+def sectionNames() -> List[str]:
     return [x.name() for x in ConstituentModules]
 
 
-def inputs():
-    inputs = set()
+def inputs() -> List[str]:
+    xinputs = set()
     for x in ConstituentModules:
-        inputs.update(x.inputs())
-    return list(inputs)
+        xinputs.update(x.inputs())
+    return list(xinputs)
 
 
-def vi_points(answers):
+def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, Union[int, Dict[str, Dict[str, int]]]]]]]:
     # construct point calculators
-    score = {}
-    score['INDEX'] = 0
-    score['MAXPOINTS'] = 0
-    score['MAXFORANSWERED'] = 0
-    score['COMPONENTS'] = {}
+    score = {'INDEX': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0, 'COMPONENTS': {}}
     for constituent in ConstituentModules:
         name = constituent.name()
         logging.info('calculating index for %s', name)

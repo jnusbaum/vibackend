@@ -1,5 +1,6 @@
 import logging
 import utilities
+from typing import Tuple, Dict, Union
 
 
 """Calculate the Nutrition VI score
@@ -57,16 +58,15 @@ AlcoholicDrinksFemalePoints = utilities.PointsMap({'1': 0,
                                                    '3': -10})
 
 
-def name():
+def name() -> str:
     return 'NUTRITION'
-    
-def inputs():
-    inputs = ('Gender','NumberFruitServings','NumberVegetableServings','NumberDrinks','NumberCaffeinatedDrinks','NumberWaterDrinks','NumberAlcoholicDrinks')
-    return inputs
 
 
+def inputs() -> Tuple[str, ...]:
+    return ('Gender','NumberFruitServings','NumberVegetableServings','NumberDrinks','NumberCaffeinatedDrinks','NumberWaterDrinks','NumberAlcoholicDrinks')
 
-def vi_points(answers):
+
+def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
