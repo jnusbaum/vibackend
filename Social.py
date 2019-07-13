@@ -1,11 +1,11 @@
 import logging
-
-import utilities
+from . import utilities
+from typing import Union, Dict, Tuple
 
 """Calculate the Psycho Social VI score
 
     An individual class instance is created for each individual set of base input data.
-    
+
     Input Data:
     satisfaction with life
     energy level
@@ -59,8 +59,8 @@ import utilities
     relationship status
 """
 
-MaxPsychosocialPointsForThoseWithJobs = 365
-MaxPsychosocialPointsForThoseWithoutJobs = 300
+MaxPsychosocialPointsForThoseWithJobs: int = 365
+MaxPsychosocialPointsForThoseWithoutJobs: int = 300
 
 # 0,1-50,51-60,more than 60
 HoursSpentWorkingJobPoints = utilities.PointsMap({'1': 0,
@@ -137,7 +137,7 @@ TotalPrimaryAndSecondaryFriendsPoints = utilities.PointsRange(((0, 0), (2, 5)), 
 TimesMeetingOrSpeakingWithNonCloseFriendsPoints = utilities.PointsRange(((0, 0),), 5)
 SocialSatisfactionRange = utilities.PointsRange(((2, 0), (5, 10), (8, 15)), 20)
 
-CommunityCohesionVIPoints = 5
+CommunityCohesionVIPoints: int = 5
 
 EmotionalEnrichmentRange = utilities.PointsRange(((2, 0), (5, 10), (8, 20)), 30)
 # 0-3,4-6,7-10,more than 10
@@ -287,11 +287,11 @@ OverallSatisfactionPoints = utilities.PointsMap({'1': 1,
                                                  '10': 10})
 
 
-def name():
+def name() -> str:
     return 'SOCIAL'
 
 
-def inputs():
+def inputs() -> Tuple[str, ...]:
     return ('GoodAboutLife', 'EnergyLevel', 'HandleEverythingNeeded', 'OptimisticAboutFuture', 'SenseOfDirection',
             'AnxietyLevel',
             'NeedsBeingMet', 'MeaningfulRelationships', 'OverallHappiness', 'OverallStressLevel', 'OverallAnxietyLevel',
@@ -312,7 +312,7 @@ def inputs():
             'GratificationLargeGroupActivities', 'StressLargeGroupActivities')
 
 
-def vi_points(answers):
+def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,

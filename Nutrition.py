@@ -1,5 +1,5 @@
 import logging
-import utilities
+from . import utilities
 from typing import Tuple, Dict, Union
 
 
