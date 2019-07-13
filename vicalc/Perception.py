@@ -1,10 +1,11 @@
 import logging
-import utilities
+from . import utilities
+from typing import Union, Dict, Tuple
 
 """Calculate the Nutrition VI score
 
     An individual class instance is created for each individual set of base inpiut data.
-    
+
     Input Data:
     if pain affected activities
         pain affected activities scale
@@ -56,29 +57,32 @@ OverallPerceivedHealthPoints = utilities.PointsMap({'1': 20,
                                                     '5': 0})
 
 
-def name():
+def name() -> str:
     return 'PERCEPTION'
-    
-def inputs():
+
+
+def inputs() -> Tuple[str, ...]:
     return ('PainInterferedWithActivities',
             'OtherFactorsInterferedWithActivities',
             'ReliedOnOthersForHelp',
             'OverallHealth')
-    
-def vi_points(answers):
+
+
+def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
-               'COMPONENTS': {'PAINLIFE': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED':0},
-                              'HEALTHLIFE':{'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED':0},
-                              'RELIEDOTHERS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED':0},
-                              'PERCEIVEDHEALTH': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED':0}}}
+               'COMPONENTS': {'PAINLIFE': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
+                              'HEALTHLIFE': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
+                              'RELIEDOTHERS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
+                              'PERCEIVEDHEALTH': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0}}}
 
     painAffectedActivities = utilities.strToKey(answers['PainInterferedWithActivities'])
     results = utilities.subpts(painAffectedActivities, 'PAINLIFE', PainInterferingWithLifePoints, results)
 
     otherFactorsAffectedActivities = utilities.strToKey(answers['OtherFactorsInterferedWithActivities'])
-    results = utilities.subpts(otherFactorsAffectedActivities, 'HEALTHLIFE', HealthFactorsInterferingWithLifePoints, results)
+    results = utilities.subpts(otherFactorsAffectedActivities, 'HEALTHLIFE', HealthFactorsInterferingWithLifePoints,
+                               results)
 
     reliedOnOthersForHelp = utilities.strToKey(answers['ReliedOnOthersForHelp'])
     results = utilities.subpts(reliedOnOthersForHelp, 'RELIEDOTHERS', HowMuchRelianceOnOthersPoints, results)
@@ -87,4 +91,5 @@ def vi_points(answers):
     results = utilities.subpts(overallHealth, 'PERCEIVEDHEALTH', OverallPerceivedHealthPoints, results)
 
     return results
+
 

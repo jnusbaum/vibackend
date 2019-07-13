@@ -1,12 +1,12 @@
 import logging
 from typing import List, Dict, Union
-import Exercise
-import Medical
-import Nutrition
-import PsychoSocial
-import SelfPerceivedHealth
+from . import Exercise
+from . import Medical
+from . import Nutrition
+from . import Social
+from . import Perception
 
-ConstituentModules = (Exercise, Medical, Nutrition, PsychoSocial, SelfPerceivedHealth)
+ConstituentModules = (Exercise, Medical, Nutrition, Social, Perception)
 
 
 def sectionNames() -> List[str]:
