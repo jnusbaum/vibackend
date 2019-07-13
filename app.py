@@ -509,11 +509,13 @@ def modify_user():
         pass
     try:
         email = credentials['email']
-        if User.exists(email=email):
-            # user with this email already exists
-            logging.error("user name exists")
-            raise VI400Exception("User with specified email already exists.")
-        user.email = email
+        if email != user.email:
+            # email (primary key) is changing
+            if User.exists(email=email):
+                # user with this email already exists
+                logging.error("user name exists")
+                raise VI400Exception("User with specified email already exists.")
+            user.email = email
     except KeyError:
         pass
     try:
