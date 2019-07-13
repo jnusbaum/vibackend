@@ -1,10 +1,10 @@
-#! /usr/bin/env python
-from models import *
-import datetime
+from datetime import datetime
 import os
 
 from msrestazure.azure_active_directory import MSIAuthentication
 from azure.keyvault.key_vault_client import KeyVaultClient
+
+from models import *
 
 dbhost = os.getenv('DBHOST')
 database = os.getenv('DATABASE')
@@ -40,7 +40,7 @@ How (and if) you call this is entirely up you. You could expose it to an
 endpoint that only administrators could call, you could run it as a cron,
 set it up with flask cli, etc.
 """
-now = datetime.datetime.now()
+now = datetime.utcnow()
 print("expiring token expired before %s" % (now, ))
 with db_session:
     expired = Token.select(lambda t: t.expires < now)
