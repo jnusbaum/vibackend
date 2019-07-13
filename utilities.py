@@ -1,20 +1,24 @@
+from typing import Dict, Tuple, Union
+from datetime import datetime, date
+import logging
+
 
 class PointsRange(object):
-    def __init__(self, rng, default, inclusive=True):
+    def __init__(self, rng: Tuple[Tuple[float, int], ...], default: int, inclusive: bool = True) -> None:
         self.range = rng
         self.default = default
-        self._max = -1000
+        self._max: int = -1000
         self.inclusive = inclusive
         for val, pts in self.range:
             if pts > self._max:
                 self._max = pts
         if self.default > self._max:
             self._max = self.default
-            
-    def max(self):
+
+    def max(self) -> int:
         return self._max
-        
-    def points(self, val):
+
+    def points(self, val: int) -> int:
         for lim, pts in self.range:
             if self.inclusive:
                 if val <= lim:
@@ -25,47 +29,25 @@ class PointsRange(object):
         return self.default
 
 
-class PointsIndex(object):
-    def __init__(self, points, default):
-        self._points = points
-        self.default = default
-        self._max = -1000
-        for pts in self._points:
-            if pts > self._max:
-                self._max = pts
-        if self.default > self._max:
-            self._max = self.default
-                
-    def max(self):
-        return self._max
-        
-    def points(self, val):
-        val = val-1
-        if val < len(self._points):
-            return self._points[val]
-        else:
-            return self.default
-                
-
 class PointsMap(object):
-    _max: int
 
-    def __init__(self, points):
+    def __init__(self, points: Dict[Union[str, int], int]) -> None:
         self._points = points
-        self._max = -1000
+        self._max: int = -1000
         for pts in self._points.values():
             if pts > self._max:
                 self._max = pts
-                
-    def max(self):
+
+    def max(self) -> int:
         return self._max
-        
-    def points(self, val):
+
+    def points(self, val: str) -> int:
         # let this throw KeyError if no mapping
         return self._points[val]
 
+
 # answer handlers
-def yesNoToBool(ans):
+def yesNoToBool(ans: str) -> Union[bool, None]:
     if ans:
         if ans in ('Yes', 'yes'):
             return True
@@ -73,7 +55,8 @@ def yesNoToBool(ans):
             return False
     return None
 
-def strToBool(ans):
+
+def strToBool(ans: str) -> Union[bool, None]:
     if ans:
         if ans in ('1', 'Yes', 'yes', 'True', 'true'):
             return True
@@ -81,50 +64,58 @@ def strToBool(ans):
             return False
     return None
 
-def strToInt(ans):
+
+def strToInt(ans: str) -> Union[int, None]:
     if ans:
         return int(ans)
     return None
 
-def strToDate(ans):
-    import datetime
+
+def strToDate(ans: str) -> Union[date, None]:
     if ans:
-        return datetime.datetime.strptime(ans, "%Y-%m-%d").date()
+        return datetime.strptime(ans, "%Y-%m-%d").date()
     return None
 
-def strToDatetime(ans):
+
+def strToDatetime(ans: str) -> Union[datetime, None]:
     import datetime
     if ans:
         d = datetime.datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
         # assumed to be in UTC
-        d.replace(tzinfo=datetime.timezone.utc)
         return d
     return None
 
-def strToIndex(ans):
+
+def strToIndex(ans: str) -> Union[int, None]:
     if ans:
         return int(ans)
     return None
 
-def strToKey(ans):
+
+def strToKey(ans: str) -> Union[str, None]:
     if ans:
         return ans
     return None
 
+
 # birth date handlers
-def ageFromBirthDate(born):
-    import datetime
-    today = datetime.date.today()
+def ageFromBirthDate(born: date) -> int:
+    today = date.today()
     return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
-    
-def isMale(gender):
+
+
+def isMale(gender: str) -> Union[bool, None]:
     if gender:
         return gender in ('Male', 'male')
     return None
-    
 
-def subpts(val, name, ptscls, results):
-    import logging
+
+ValType = Union[int, float, str, None]
+ResultsType = Dict[str, Union[int, Dict[str, Dict[str, int]]]]
+MapType = Union[PointsRange, PointsMap]
+
+
+def subpts(val: ValType, name: str, ptscls: MapType, results: ResultsType) -> ResultsType:
     results['COMPONENTS'][name]['MAXPOINTS'] = ptscls.max()
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS'][name]['MAXPOINTS']
     if val is not None:
@@ -135,8 +126,8 @@ def subpts(val, name, ptscls, results):
         results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
     return results
 
-def subptscond(val, cond, name, ptscls, results):
-    import logging
+
+def subptscond(val: ValType, cond: bool, name: str, ptscls: MapType, results: ResultsType) -> ResultsType:
     results['COMPONENTS'][name]['MAXPOINTS'] = ptscls.max()
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS'][name]['MAXPOINTS']
     if cond:
@@ -147,12 +138,11 @@ def subptscond(val, cond, name, ptscls, results):
         results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
     return results
 
-def subptsanswered(val, name, ptscls, results):
-    import logging
+
+def subptsanswered(val: ValType, name: str, ptscls: MapType, results: ResultsType) -> ResultsType:
     results['COMPONENTS'][name]['MAXFORANSWERED'] = results['COMPONENTS'][name]['MAXPOINTS']
     results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS'][name]['MAXFORANSWERED']
     results['COMPONENTS'][name]['POINTS'] = ptscls.points(val)
     logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
     results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
     return results
-
