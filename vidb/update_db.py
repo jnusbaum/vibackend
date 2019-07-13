@@ -1,5 +1,5 @@
 import os
-from models import *
+from .models import *
 
 dbhost = os.getenv('DBHOST')
 database = os.getenv('DATABASE')
