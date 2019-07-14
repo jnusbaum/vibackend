@@ -1,5 +1,5 @@
 import os
-from .models import *
+from models import *
 import datetime
 from passlib.hash import argon2
 
