@@ -1,10 +1,10 @@
 import logging
 from typing import List, Dict, Union
-from . import Exercise
-from . import Medical
-from . import Nutrition
-from . import Social
-from . import Perception
+import Exercise
+import Medical
+import Nutrition
+import Social
+import Perception
 
 ConstituentModules = (Exercise, Medical, Nutrition, Social, Perception)
 
