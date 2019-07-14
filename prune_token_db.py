@@ -3,7 +3,7 @@ import os
 from msrestazure.azure_active_directory import MSIAuthentication
 from azure.keyvault.key_vault_client import KeyVaultClient
 
-from models import *
+from .models import *
 
 dbhost = os.getenv('DBHOST')
 database = os.getenv('DATABASE')
