@@ -1,5 +1,5 @@
 import logging
-import utilities
+from . import utilities
 from typing import Union, Dict, Tuple
 
 """Calculate the Nutrition VI score
