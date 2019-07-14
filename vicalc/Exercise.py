@@ -1,5 +1,5 @@
 import logging
-from . import utilities
+import utilities
 from typing import Tuple, Dict, Union
 
 """Calculate the Exercise VI score
