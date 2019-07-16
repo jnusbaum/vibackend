@@ -779,9 +779,7 @@ def create_index_for_user():
 
     if not found_at_least_one:
         # no answers in db
-        # return empty results to caller
-        rresults = {'count': 0, 'data': []}
-        return jsonify(rresults)
+        logging.warning("Generating Result with no answers")
 
     ret_answers = {k: getattr(v, "answer") if v else '' for k, v in answers.items()}
 
