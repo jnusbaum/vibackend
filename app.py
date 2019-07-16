@@ -65,7 +65,7 @@ jwt = JWTManager(app)
 index_id = "Vitality Index"
 
 # set up logger
-app.logger.setLevel(app.config['LOGLEVEL'])
+# app.logger.setLevel(app.config['LOGLEVEL'])
 logfile = app.config['LOGDIR'] + app.config['LOGNAME']
 # check for existence and rotate
 if os.path.isfile(logfile):
@@ -76,19 +76,14 @@ if os.path.isfile(logfile):
 else:
     # create log directory if it does not exist
     os.makedirs(app.config['LOGDIR'], 0o777, True)
-fh = logging.FileHandler(logfile)
-fh.setLevel(app.config['LOGLEVEL'])
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
-app.logger.addHandler(fh)
+# fh = logging.FileHandler(logfile)
+# fh.setLevel(app.config['LOGLEVEL'])
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# fh.setFormatter(formatter)
+# app.logger.addHandler(fh)
 
 # set up basic logging
 logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
-loglevels = {'DEBUG': logging.DEBUG,
-             'ERROR': logging.ERROR,
-             'WARNING': logging.WARNING,
-             'INFO': logging.INFO
-             }
 
 # set up pony
 db.bind(provider='postgres', host=app.config['DBHOST'],
@@ -612,7 +607,8 @@ def answers_for_user():
 @jwt_required
 def add_answers_for_user():
     logging.debug("in /users/answers[POST]")
-    trecv = datetime.utcnow()
+    # truncate to second precision
+    trecv = datetime.utcnow().replace(microsecond=0)
 
     # authorize user, will abort if auth fails
     user = check_user(('viuser',))
@@ -712,7 +708,7 @@ def answer_counts_for_user():
 @jwt_required
 def results_for_user():
     logging.debug("in /users/results[GET]")
-    trecv = datetime.utcnow()
+    trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
     user = check_user(('viuser',))
@@ -741,7 +737,7 @@ def results_for_user():
 @jwt_required
 def create_index_for_user():
     logging.debug("in /users/results[POST]")
-    trecv = datetime.utcnow()
+    trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
     user = check_user(('viuser',))
@@ -857,7 +853,7 @@ def get_recommendations_for_result(component_name):
         aod = request.args.get('as-of-time', type=str_to_datetime)
         if not aod:
             # use current time
-            aod = datetime.utcnow()
+            aod = datetime.utcnow().replace(microsecond=0)
         if aod:
             results = results.filter(
                 lambda r: r.time_generated <= aod).order_by(
