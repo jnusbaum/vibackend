@@ -85,7 +85,7 @@ def inputs() -> Tuple[str, ...]:
 
 
 def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
-    logging.info("calculating score for %s" % name())
+    logging.debug("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
                'COMPONENTS': {'EXERCISE': {'POINTS': 0, 'MAXPOINTS': MaxExerciseActivityPointsAvailable, 'MAXFORANSWERED': 0},
@@ -116,18 +116,18 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                 if age < ActivityLevelAgeThreshold:
                     if minutesVigorousActivity >= VIActivityGoalVigorousUnderSixtyfive:
                         # Vigorous GOAL Met, return full points
-                        logging.info("vigorous goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
+                        logging.debug("vigorous goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
                         results['COMPONENTS']['EXERCISE']['POINTS'] = MaxExerciseActivityPointsAvailable
                         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                     elif minutesModerateActivity >= VIActivityGoalModerate:
                         # Moderate GOAL Met, return full points
-                        logging.info("moderate goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
+                        logging.debug("moderate goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
                         results['COMPONENTS']['EXERCISE']['POINTS'] = MaxExerciseActivityPointsAvailable
                         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                     elif (minutesVigorousActivity >= VIActivityGoalVigorousCombinedUnderSixtyFive) and (
                             minutesModerateActivity >= VIActivityGoalModerateCombinedUnderSixtyFive):
                         # Combined GOAL Met, return full points
-                        logging.info("combined goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
+                        logging.debug("combined goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
                         results['COMPONENTS']['EXERCISE']['POINTS'] = MaxExerciseActivityPointsAvailable
                         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                     else:
@@ -141,40 +141,40 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                         if percentVigorousMet > percentModerateMet:
                             if percentVigorousMet > percentCombinedMet:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentVigorousMet)
-                                logging.info("no goal met, using %% vigorous, score increased by %d", expts)
+                                logging.debug("no goal met, using %% vigorous, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                             else:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentCombinedMet)
-                                logging.info("no goal met, using %% combined, score increased by %d", expts)
+                                logging.debug("no goal met, using %% combined, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                         else:
                             if percentModerateMet > percentCombinedMet:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentCombinedMet)
-                                logging.info("no goal met, using %% moderate, score increased by %d", expts)
+                                logging.debug("no goal met, using %% moderate, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                             else:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentCombinedMet)
-                                logging.info("no goal met, using %% combined, score increased by %d", expts)
+                                logging.debug("no goal met, using %% combined, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                 else:
                     if minutesVigorousActivity >= VIActivityGoalVigorousSixtyfivePlus:
                         # Vigorous GOAL Met, return full points
-                        logging.info("vigorous goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
+                        logging.debug("vigorous goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
                         results['COMPONENTS']['EXERCISE']['POINTS'] = MaxExerciseActivityPointsAvailable
                         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                     elif minutesModerateActivity >= VIActivityGoalModerate:
                         # Moderate GOAL Met, return full points
-                        logging.info("moderate goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
+                        logging.debug("moderate goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
                         results['COMPONENTS']['EXERCISE']['POINTS'] = MaxExerciseActivityPointsAvailable
                         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                     elif (minutesVigorousActivity >= VIActivityGoalVigorousCombinedSixtyFivePlus) and (
                             minutesModerateActivity >= VIActivityGoalModerateCombinedSixtyFivePlus):
                         # Combined GOAL Met, return full points
-                        logging.info("combined goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
+                        logging.debug("combined goal met, score increased by %d", MaxExerciseActivityPointsAvailable)
                         results['COMPONENTS']['EXERCISE']['POINTS'] = MaxExerciseActivityPointsAvailable
                         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                     else:
@@ -189,23 +189,23 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                         if percentVigorousMet > percentModerateMet:
                             if percentVigorousMet > percentCombinedMet:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentVigorousMet)
-                                logging.info("no goal met, using %% vigorous, score increased by %d", expts)
+                                logging.debug("no goal met, using %% vigorous, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                             else:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentCombinedMet)
-                                logging.info("no goal met, using %% combined, score increased by %d", expts)
+                                logging.debug("no goal met, using %% combined, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                         else:
                             if percentModerateMet > percentCombinedMet:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentModerateMet)
-                                logging.info("no goal met, using %% moderate, score increased by %d", expts)
+                                logging.debug("no goal met, using %% moderate, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
                             else:
                                 expts = round(MaxExerciseActivityPointsAvailable * percentCombinedMet)
-                                logging.info("no goal met, using %% combined, score increased by %d", expts)
+                                logging.debug("no goal met, using %% combined, score increased by %d", expts)
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
 

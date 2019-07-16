@@ -130,7 +130,7 @@ def subpts(val: ValType, name: str, ptscls: MapType, results: ResultsType) -> Re
             logging.error("Illegal value %s input for %s" % (str(val), name))
         else:
             results['COMPONENTS'][name]['POINTS'] = pts
-            logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
+            logging.debug("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
             results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
 
     return results
@@ -148,7 +148,7 @@ def subptscond(val: ValType, cond: bool, name: str, ptscls: MapType, results: Re
             logging.error("Illegal value %s input for %s" % (str(val), name))
         else:
             results['COMPONENTS'][name]['POINTS'] = pts
-            logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
+            logging.debug("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
             results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
     return results
 
@@ -163,6 +163,6 @@ def subptsanswered(val: ValType, name: str, ptscls: MapType, results: ResultsTyp
         logging.error("Illegal value %s input for %s" % (str(val), name))
     else:
         results['COMPONENTS'][name]['POINTS'] = ptscls.points(val)
-        logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
+        logging.debug("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
         results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
     return results

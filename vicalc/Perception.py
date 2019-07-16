@@ -69,7 +69,7 @@ def inputs() -> Tuple[str, ...]:
 
 
 def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
-    logging.info("calculating score for %s" % name())
+    logging.debug("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
                'COMPONENTS': {'PAINLIFE': {'POINTS': 0, 'MAXPOINTS': PainInterferingWithLifePoints.max(), 'MAXFORANSWERED': 0},
