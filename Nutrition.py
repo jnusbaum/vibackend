@@ -70,13 +70,13 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
-               'COMPONENTS': {'NUMFRUITSSERVS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NUMVEGSERVS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NUMFRUITANDVEG': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NUMDRINKS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NUMCAFDRINKS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NUMWATERDRINKS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NUMALCDRINKS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0}}}
+               'COMPONENTS': {'NUMFRUITSSERVS': {'POINTS': 0, 'MAXPOINTS': FruitServingsPoints.max(), 'MAXFORANSWERED': 0},
+                              'NUMVEGSERVS': {'POINTS': 0, 'MAXPOINTS': VegetableServingsPoints.max(), 'MAXFORANSWERED': 0},
+                              'NUMFRUITANDVEG': {'POINTS': 0, 'MAXPOINTS': FruitAndVegServingsMapMax, 'MAXFORANSWERED': 0},
+                              'NUMDRINKS': {'POINTS': 0, 'MAXPOINTS': EightOunceDrinksPoints.max(), 'MAXFORANSWERED': 0},
+                              'NUMCAFDRINKS': {'POINTS': 0, 'MAXPOINTS': CaffeinatedDrinksPoints.max(), 'MAXFORANSWERED': 0},
+                              'NUMWATERDRINKS': {'POINTS': 0, 'MAXPOINTS': WaterServingsPoints.max(), 'MAXFORANSWERED': 0},
+                              'NUMALCDRINKS': {'POINTS': 0, 'MAXPOINTS': AlcoholicDrinksMalePoints.max(), 'MAXFORANSWERED': 0}}}
 
     numberOfFruitServings  = utilities.strToKey(answers['NumberFruitServings'])
     results = utilities.subpts(numberOfFruitServings, 'NUMFRUITSSERVS', FruitServingsPoints, results)
@@ -86,7 +86,6 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
 
     # special case
     if numberOfFruitServings is not None and numberOfVegServings is not None:
-        results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS'] = FruitAndVegServingsMapMax
         results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS']
         results['COMPONENTS']['NUMFRUITANDVEG']['MAXFORANSWERED'] = results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS']
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS']['NUMFRUITANDVEG']['MAXFORANSWERED']
@@ -109,6 +108,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         if isMale:
             results = utilities.subpts(numberOfAlcoholicDrinks, 'NUMALCDRINKS', AlcoholicDrinksMalePoints, results)
         else:
+            results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS'] = AlcoholicDrinksFemalePoints.max()
             results = utilities.subpts(numberOfAlcoholicDrinks, 'NUMALCDRINKS', AlcoholicDrinksFemalePoints, results)
     else:
         results = utilities.subpts(numberOfAlcoholicDrinks, 'NUMALCDRINKS', AlcoholicDrinksMalePoints, results)

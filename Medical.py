@@ -159,14 +159,14 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
                'COMPONENTS': {'BMI': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'MEDCONDS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NUMMEDS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'SYS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'DIA': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'LDL': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'HDL': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'TRI': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'RHR': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
+                              'MEDCONDS': {'POINTS': 0, 'MAXPOINTS': MaxStartingMajorConditionsPoints, 'MAXFORANSWERED': 0},
+                              'NUMMEDS': {'POINTS': 0, 'MAXPOINTS': NumberMedicationsPoints.max(), 'MAXFORANSWERED': 0},
+                              'SYS': {'POINTS': 0, 'MAXPOINTS': SystolicRange.max(), 'MAXFORANSWERED': 0},
+                              'DIA': {'POINTS': 0, 'MAXPOINTS': DiastolicRange.max(), 'MAXFORANSWERED': 0},
+                              'LDL': {'POINTS': 0, 'MAXPOINTS': LDLRange.max(), 'MAXFORANSWERED': 0},
+                              'HDL': {'POINTS': 0, 'MAXPOINTS': HDLRange.max(), 'MAXFORANSWERED': 0},
+                              'TRI': {'POINTS': 0, 'MAXPOINTS': TriRange.max(), 'MAXFORANSWERED': 0},
+                              'RHR': {'POINTS': 0, 'MAXPOINTS': RHRRange.max(), 'MAXFORANSWERED': 0},
                               'TOBACCO7': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
                               'TOBACCO180': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0}}}
 
@@ -179,16 +179,17 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         bmi = (weight / (height * height)) * BMIConstant
         logging.info('bmi = %f', bmi)
         if age <= BMIAgeThreshold:
+            results['COMPONENTS']['BMI']['MAXPOINTS'] = BelowBMIThresholdAgeRange.max()
             results = utilities.subpts(bmi, 'BMI', BelowBMIThresholdAgeRange, results)
         else:
+            results['COMPONENTS']['BMI']['MAXPOINTS'] = AboveBMIThresholdAgeRange.max()
             results = utilities.subpts(bmi, 'BMI', AboveBMIThresholdAgeRange, results)
     else:
         # get max
-        results = utilities.subpts(bmi, 'BMI', AboveBMIThresholdAgeRange, results)
+        results['COMPONENTS']['BMI']['MAXPOINTS'] = AboveBMIThresholdAgeRange.max()
+        results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['BMI']['MAXPOINTS']
 
     logging.debug('starting medical conditions score at %d', MaxStartingMajorConditionsPoints)
-
-    results['COMPONENTS']['MEDCONDS']['MAXPOINTS'] = MaxStartingMajorConditionsPoints
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['MEDCONDS']['MAXPOINTS']
 
     numberOfConditions = utilities.strToInt(answers['NumberOfConditions'])
