@@ -127,7 +127,7 @@ def subpts(val: ValType, name: str, ptscls: MapType, results: ResultsType) -> Re
             # val not legal index to points
             # log warning but continue execution
             # no points assigned
-            logging.warning("Illegal value %s input for %s" % (str(val), name))
+            logging.error("Illegal value %s input for %s" % (str(val), name))
         else:
             results['COMPONENTS'][name]['POINTS'] = pts
             logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
@@ -145,7 +145,7 @@ def subptscond(val: ValType, cond: bool, name: str, ptscls: MapType, results: Re
         try:
             pts = ptscls.points(val)
         except (KeyError, IndexError) as error:
-            logging.warning("Illegal value %s input for %s" % (str(val), name))
+            logging.error("Illegal value %s input for %s" % (str(val), name))
         else:
             results['COMPONENTS'][name]['POINTS'] = pts
             logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
@@ -160,7 +160,7 @@ def subptsanswered(val: ValType, name: str, ptscls: MapType, results: ResultsTyp
     try:
         pts = ptscls.points(val)
     except (KeyError, IndexError) as error:
-        logging.warning("Illegal value %s input for %s" % (str(val), name))
+        logging.error("Illegal value %s input for %s" % (str(val), name))
     else:
         results['COMPONENTS'][name]['POINTS'] = ptscls.points(val)
         logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
