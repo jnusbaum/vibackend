@@ -88,17 +88,16 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
-               'COMPONENTS': {'EXERCISE': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'DAYSEX': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'DAYSRES': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'SETSRES': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'DAYSFLEX': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'MINSFLEX': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'DAYSBAL': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'MINSBAL': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'HOURSNONSED': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0}}}
+               'COMPONENTS': {'EXERCISE': {'POINTS': 0, 'MAXPOINTS': MaxExerciseActivityPointsAvailable, 'MAXFORANSWERED': 0},
+                              'DAYSEX': {'POINTS': 0, 'MAXPOINTS': DaysPhysicalActivityPoints.max(), 'MAXFORANSWERED': 0},
+                              'DAYSRES': {'POINTS': 0, 'MAXPOINTS': DaysResistanceExercisePoints.max(), 'MAXFORANSWERED': 0},
+                              'SETSRES': {'POINTS': 0, 'MAXPOINTS': SetsResistanceExercisePoints.max(), 'MAXFORANSWERED': 0},
+                              'DAYSFLEX': {'POINTS': 0, 'MAXPOINTS': DaysFlexibilityExercisePoints.max(), 'MAXFORANSWERED': 0},
+                              'MINSFLEX': {'POINTS': 0, 'MAXPOINTS': MinutesFlexibilityActivityPoints.max(), 'MAXFORANSWERED': 0},
+                              'DAYSBAL': {'POINTS': 0, 'MAXPOINTS': MinutesFlexibilityActivityPoints.max(), 'MAXFORANSWERED': 0},
+                              'MINSBAL': {'POINTS': 0, 'MAXPOINTS': MinutesBalanceAndAgilityActivityPoints.max(), 'MAXFORANSWERED': 0},
+                              'HOURSNONSED': {'POINTS': 0, 'MAXPOINTS': NonSedentaryBehaviorPoints.max(), 'MAXFORANSWERED': 0}}}
 
-    results['COMPONENTS']['EXERCISE']['MAXPOINTS'] = MaxExerciseActivityPointsAvailable
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['EXERCISE']['MAXPOINTS']
     # answer should be int
     minsExercised = utilities.strToInt(answers['MinutesPhysicalActivity'])
@@ -226,7 +225,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     results = utilities.subpts(minutesOfFlexibilityActivity, 'MINSFLEX', MinutesFlexibilityActivityPoints, results)
 
     daysOfBalanceAndAgilityExercise = utilities.strToKey(answers['DaysBalanceAgilityExercise'])
-    results = utilities.subpts(daysOfBalanceAndAgilityExercise, 'DAYSBAL', DaysBalanceAndAgilityExercisePoints, results)
+    results = utilities.subpts(daysOfBalanceAndAgilityExercise, 'DAYSBAL', MinutesFlexibilityActivityPoints, results)
 
     minutesOfBalanceAndAgilityActivity = utilities.strToKey(answers['MinutesBalanceAgilityActivity'])
     results = utilities.subpts(minutesOfBalanceAndAgilityActivity, 'MINSBAL', MinutesBalanceAndAgilityActivityPoints,

@@ -116,33 +116,53 @@ MapType = Union[PointsRange, PointsMap]
 
 
 def subpts(val: ValType, name: str, ptscls: MapType, results: ResultsType) -> ResultsType:
-    results['COMPONENTS'][name]['MAXPOINTS'] = ptscls.max()
+    pts:int  = 0
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS'][name]['MAXPOINTS']
     if val is not None:
         results['COMPONENTS'][name]['MAXFORANSWERED'] = results['COMPONENTS'][name]['MAXPOINTS']
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS'][name]['MAXFORANSWERED']
-        results['COMPONENTS'][name]['POINTS'] = ptscls.points(val)
-        logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
-        results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
+        try:
+            pts = ptscls.points(val)
+        except (KeyError, IndexError) as error:
+            # val not legal index to points
+            # log warning but continue execution
+            # no points assigned
+            logging.warning("Illegal value %s input for %s" % (str(val), name))
+        else:
+            results['COMPONENTS'][name]['POINTS'] = pts
+            logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
+            results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
+
     return results
 
 
 def subptscond(val: ValType, cond: bool, name: str, ptscls: MapType, results: ResultsType) -> ResultsType:
-    results['COMPONENTS'][name]['MAXPOINTS'] = ptscls.max()
+    pts: int = 0
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS'][name]['MAXPOINTS']
     if cond:
         results['COMPONENTS'][name]['MAXFORANSWERED'] = results['COMPONENTS'][name]['MAXPOINTS']
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS'][name]['MAXFORANSWERED']
-        results['COMPONENTS'][name]['POINTS'] = ptscls.points(val)
-        logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
-        results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
+        try:
+            pts = ptscls.points(val)
+        except (KeyError, IndexError) as error:
+            logging.warning("Illegal value %s input for %s" % (str(val), name))
+        else:
+            results['COMPONENTS'][name]['POINTS'] = pts
+            logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
+            results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
     return results
 
 
 def subptsanswered(val: ValType, name: str, ptscls: MapType, results: ResultsType) -> ResultsType:
+    pts: int = 0
     results['COMPONENTS'][name]['MAXFORANSWERED'] = results['COMPONENTS'][name]['MAXPOINTS']
     results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS'][name]['MAXFORANSWERED']
-    results['COMPONENTS'][name]['POINTS'] = ptscls.points(val)
-    logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
-    results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
+    try:
+        pts = ptscls.points(val)
+    except (KeyError, IndexError) as error:
+        logging.warning("Illegal value %s input for %s" % (str(val), name))
+    else:
+        results['COMPONENTS'][name]['POINTS'] = ptscls.points(val)
+        logging.info("score increased by total of %d for %s", results['COMPONENTS'][name]['POINTS'], name)
+        results['POINTS'] = results['POINTS'] + results['COMPONENTS'][name]['POINTS']
     return results

@@ -316,55 +316,50 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
-               'COMPONENTS': {'WORKCOMP': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'WORKGRAT': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'WORKCAR': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'WORKHOURS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'WORKSTRESS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'GROUPEVENTS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NONWORKACTIVITIES': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NONWORKGRAT': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NONWORKSTRESS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'FINSTRESS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'PRINETWORK': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'TOTALNETWORK': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'COMMUNITYCOH': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'COMMUNITYINTER': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'SOCIALSAT': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'EMOTIONALENRICH': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'SLEEPHOURS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'SLEEPSAT': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'LIFESAT': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'ENERGYLVL': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'LIFECONTROL': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'OPTIMISM': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'DIRECTION': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'ANXIETYLVL': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'NEEDSMET': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'RELATIONSHIPS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'OVERALLHAPPY': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'OVERALLSTRESS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'OVERALLANXIETY': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'OVERALLSAT': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0}}}
+               'COMPONENTS': {'WORKCOMP': {'POINTS': 0, 'MAXPOINTS': ComparisonOfHoursWorkedToDesiredPoints.max(), 'MAXFORANSWERED': 0},
+                              'WORKGRAT': {'POINTS': 0, 'MAXPOINTS': GratificationFromWorkPoints.max(), 'MAXFORANSWERED': 0},
+                              'WORKCAR': {'POINTS': 0, 'MAXPOINTS': HoursSpentInCarForJobPoints.max(), 'MAXFORANSWERED': 0},
+                              'WORKHOURS': {'POINTS': 0, 'MAXPOINTS': HoursSpentWorkingJobPoints.max(), 'MAXFORANSWERED': 0},
+                              'WORKSTRESS': {'POINTS': 0, 'MAXPOINTS': StressFromWorkPoints.max(), 'MAXFORANSWERED': 0},
+                              'GROUPEVENTS': {'POINTS': 0, 'MAXPOINTS': CombinedSmallAndLargeGroupActivitiesPoints.max(), 'MAXFORANSWERED': 0},
+                              'NONWORKACTIVITIES': {'POINTS': 0, 'MAXPOINTS': TotalHoursOfNonWorkActivitiesRange.max(), 'MAXFORANSWERED': 0},
+                              'NONWORKGRAT': {'POINTS': 0, 'MAXPOINTS': GratificationFromAllSocialEngagementPoints.max(), 'MAXFORANSWERED': 0},
+                              'NONWORKSTRESS': {'POINTS': 0, 'MAXPOINTS': StressFromAllSocialEngagementPoints.max(), 'MAXFORANSWERED': 0},
+                              'FINSTRESS': {'POINTS': 0, 'MAXPOINTS': DifficultyPayingBillsPoints.max(), 'MAXFORANSWERED': 0},
+                              'PRINETWORK': {'POINTS': 0, 'MAXPOINTS': TimesMeetingOrSpeakingWithFriendPoints.max(), 'MAXFORANSWERED': 0},
+                              'TOTALNETWORK': {'POINTS': 0, 'MAXPOINTS': TotalPrimaryAndSecondaryFriendsPoints.max(), 'MAXFORANSWERED': 0},
+                              'COMMUNITYCOH': {'POINTS': 0, 'MAXPOINTS': CommunityCohesionVIPoints, 'MAXFORANSWERED': 0},
+                              'COMMUNITYINTER': {'POINTS': 0, 'MAXPOINTS': TimesMeetingOrSpeakingWithNonCloseFriendsPoints.max(), 'MAXFORANSWERED': 0},
+                              'SOCIALSAT': {'POINTS': 0, 'MAXPOINTS': SocialSatisfactionRange.max(), 'MAXFORANSWERED': 0},
+                              'EMOTIONALENRICH': {'POINTS': 0, 'MAXPOINTS': EmotionalEnrichmentRange.max(), 'MAXFORANSWERED': 0},
+                              'SLEEPHOURS': {'POINTS': 0, 'MAXPOINTS': HoursOfSleepPoints.max(), 'MAXFORANSWERED': 0},
+                              'SLEEPSAT': {'POINTS': 0, 'MAXPOINTS': SatisfactionOfSleepPoints.max(), 'MAXFORANSWERED': 0},
+                              'LIFESAT': {'POINTS': 0, 'MAXPOINTS': SatisfactionWithLifePoints.max(), 'MAXFORANSWERED': 0},
+                              'ENERGYLVL': {'POINTS': 0, 'MAXPOINTS': EnergyLevelPoints.max(), 'MAXFORANSWERED': 0},
+                              'LIFECONTROL': {'POINTS': 0, 'MAXPOINTS': AbilityToHandleEverythingNeededPoints.max(), 'MAXFORANSWERED': 0},
+                              'OPTIMISM': {'POINTS': 0, 'MAXPOINTS': OptimismAboutTheFuturePoints.max(), 'MAXFORANSWERED': 0},
+                              'DIRECTION': {'POINTS': 0, 'MAXPOINTS': SenseOfDirectionPoints.max(), 'MAXFORANSWERED': 0},
+                              'ANXIETYLVL': {'POINTS': 0, 'MAXPOINTS': anxietyLevelPoints.max(), 'MAXFORANSWERED': 0},
+                              'NEEDSMET': {'POINTS': 0, 'MAXPOINTS': NeedsBeingMetPoints.max(), 'MAXFORANSWERED': 0},
+                              'RELATIONSHIPS': {'POINTS': 0, 'MAXPOINTS': MeaningfulRelationshipsPoints.max(), 'MAXFORANSWERED': 0},
+                              'OVERALLHAPPY': {'POINTS': 0, 'MAXPOINTS': OverallHappinessPoints.max(), 'MAXFORANSWERED': 0},
+                              'OVERALLSTRESS': {'POINTS': 0, 'MAXPOINTS': OverallStressLevelPoints.max(), 'MAXFORANSWERED': 0},
+                              'OVERALLANXIETY': {'POINTS': 0, 'MAXPOINTS': OverallAnxietyLevelPoints.max(), 'MAXFORANSWERED': 0},
+                              'OVERALLSAT': {'POINTS': 0, 'MAXPOINTS': OverallSatisfactionPoints.max(), 'MAXFORANSWERED': 0}}}
 
     # Work Engagement
-    results['COMPONENTS']['WORKHOURS']['MAXPOINTS'] = HoursSpentWorkingJobPoints.max()
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKHOURS']['MAXPOINTS']
     hoursWorked = utilities.strToKey(answers['HoursWorked'])
 
-    results['COMPONENTS']['WORKCOMP']['MAXPOINTS'] = ComparisonOfHoursWorkedToDesiredPoints.max()
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKCOMP']['MAXPOINTS']
     comparisonOfHoursWorkedToDesired = utilities.strToKey(answers['ComparisonHoursWorkedToDesired'])
 
-    results['COMPONENTS']['WORKGRAT']['MAXPOINTS'] = GratificationFromWorkPoints.max()
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKGRAT']['MAXPOINTS']
     gratificationFromWork = utilities.strToKey(answers['GratificationFromWork'])
 
-    results['COMPONENTS']['WORKCAR']['MAXPOINTS'] = HoursSpentInCarForJobPoints.max()
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKCAR']['MAXPOINTS']
     hoursInCarForWork = utilities.strToKey(answers['HoursInCarForWork'])
 
-    results['COMPONENTS']['WORKSTRESS']['MAXPOINTS'] = StressFromWorkPoints.max()
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKSTRESS']['MAXPOINTS']
     stressFromWork = utilities.strToKey(answers['StressFromWork'])
 
@@ -485,7 +480,6 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         results = utilities.subpts(int(round(combinedGratificationScale / gratDenom)), 'NONWORKGRAT',
                                    GratificationFromAllSocialEngagementPoints, results)
     else:
-        results['COMPONENTS']['NONWORKGRAT']['MAXPOINTS'] = GratificationFromAllSocialEngagementPoints.max()
         results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['NONWORKGRAT']['MAXPOINTS']
 
     # Stress from all non-work activities VI Subscore
@@ -493,7 +487,6 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         results = utilities.subpts(int(round(combinedStressScale / stressDenom)), 'NONWORKSTRESS',
                                    StressFromAllSocialEngagementPoints, results)
     else:
-        results['COMPONENTS']['NONWORKSTRESS']['MAXPOINTS'] = StressFromAllSocialEngagementPoints.max()
         results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['NONWORKSTRESS']['MAXPOINTS']
 
     # Financial
@@ -509,7 +502,6 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     results = utilities.subpts(totalPrimaryAndSecondaryFriends, 'TOTALNETWORK', TotalPrimaryAndSecondaryFriendsPoints,
                                results)
 
-    results['COMPONENTS']['COMMUNITYCOH']['MAXPOINTS'] = CommunityCohesionVIPoints
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['COMMUNITYCOH']['MAXPOINTS']
     haveNeighborThatCanBeReliedOn = utilities.strToBool(answers['HaveNeighborThatCanBeReliedOn'])  # bool
     if haveNeighborThatCanBeReliedOn is not None:
@@ -542,7 +534,6 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     if satisfactionDenom > 0:
         results = utilities.subpts(satisfactionTotal / satisfactionDenom, 'SOCIALSAT', SocialSatisfactionRange, results)
     else:
-        results['COMPONENTS']['SOCIALSAT']['MAXPOINTS'] = SocialSatisfactionRange.max()
         results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['SOCIALSAT']['MAXPOINTS']
 
     runningTotal = 0
@@ -586,7 +577,6 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         results = utilities.subptscond(runningTotal / denominatorCount, emotionalAnswered, 'EMOTIONALENRICH',
                                        EmotionalEnrichmentRange, results)
     else:
-        results['COMPONENTS']['EMOTIONALENRICH']['MAXPOINTS'] = EmotionalEnrichmentRange.max()
         results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['EMOTIONALENRICH']['MAXPOINTS']
 
     # Sleep

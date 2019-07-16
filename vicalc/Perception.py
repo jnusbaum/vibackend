@@ -72,10 +72,10 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     logging.info("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
-               'COMPONENTS': {'PAINLIFE': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'HEALTHLIFE': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'RELIEDOTHERS': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
-                              'PERCEIVEDHEALTH': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0}}}
+               'COMPONENTS': {'PAINLIFE': {'POINTS': 0, 'MAXPOINTS': PainInterferingWithLifePoints.max(), 'MAXFORANSWERED': 0},
+                              'HEALTHLIFE': {'POINTS': 0, 'MAXPOINTS': HealthFactorsInterferingWithLifePoints.max(), 'MAXFORANSWERED': 0},
+                              'RELIEDOTHERS': {'POINTS': 0, 'MAXPOINTS': HowMuchRelianceOnOthersPoints.max(), 'MAXFORANSWERED': 0},
+                              'PERCEIVEDHEALTH': {'POINTS': 0, 'MAXPOINTS': OverallPerceivedHealthPoints.max(), 'MAXFORANSWERED': 0}}}
 
     painAffectedActivities = utilities.strToKey(answers['PainInterferedWithActivities'])
     results = utilities.subpts(painAffectedActivities, 'PAINLIFE', PainInterferingWithLifePoints, results)
