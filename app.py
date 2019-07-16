@@ -85,6 +85,8 @@ else:
 # set up basic logging
 logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
 
+logging.info("connecting to database %s:%s:%s" % (app.config['DBHOST'], app.config['DATABASE'], app.config['DBUSER']))
+
 # set up pony
 db.bind(provider='postgres', host=app.config['DBHOST'],
         database=app.config['DATABASE'],
