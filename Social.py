@@ -313,7 +313,7 @@ def inputs() -> Tuple[str, ...]:
 
 
 def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
-    logging.info("calculating score for %s" % name())
+    logging.debug("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
                'COMPONENTS': {'WORKCOMP': {'POINTS': 0, 'MAXPOINTS': ComparisonOfHoursWorkedToDesiredPoints.max(), 'MAXFORANSWERED': 0},
@@ -509,7 +509,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS']['COMMUNITYCOH']['MAXFORANSWERED']
         if haveNeighborThatCanBeReliedOn:
             results['COMPONENTS']['COMMUNITYCOH']['POINTS'] = results['COMPONENTS']['COMMUNITYCOH']['MAXPOINTS']
-            logging.info("score increased by %d for %s", results['COMPONENTS']['COMMUNITYCOH']['POINTS'],
+            logging.debug("score increased by %d for %s", results['COMPONENTS']['COMMUNITYCOH']['POINTS'],
                          'COMMUNITYCOH')
             results['POINTS'] = results['POINTS'] + results['COMPONENTS']['COMMUNITYCOH']['POINTS']
 
@@ -626,7 +626,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
 
     # scale score
     if hoursWorked is not None and hoursWorked in ('2', '3', '4'):
-        logging.info("scaling score for working client")
+        logging.debug("scaling score for working client")
         results['POINTS'] = round(
             (results['POINTS'] / MaxPsychosocialPointsForThoseWithJobs) * MaxPsychosocialPointsForThoseWithoutJobs)
     results['MAXFORANSWERED'] = round(

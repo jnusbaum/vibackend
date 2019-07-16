@@ -155,7 +155,7 @@ def inputs() -> Tuple[str, ...]:
 
 
 def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
-    logging.info("calculating score for %s" % name())
+    logging.debug("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
                'COMPONENTS': {'BMI': {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0},
@@ -177,7 +177,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     if bdate is not None and height is not None and weight is not None:
         age = utilities.ageFromBirthDate(bdate)
         bmi = (weight / (height * height)) * BMIConstant
-        logging.info('bmi = %f', bmi)
+        logging.debug('bmi = %f', bmi)
         if age <= BMIAgeThreshold:
             results['COMPONENTS']['BMI']['MAXPOINTS'] = BelowBMIThresholdAgeRange.max()
             results = utilities.subpts(bmi, 'BMI', BelowBMIThresholdAgeRange, results)
@@ -259,7 +259,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     if usedTobaccoInPast7Days is not None:
         if usedTobaccoInPast7Days:
             results['COMPONENTS']['TOBACCO7']['POINTS'] = PointDecreaseForTobaccoUsePast7Days
-            logging.info('score decreased by %d for Tobacco7', results['COMPONENTS']['TOBACCO7']['POINTS'])
+            logging.debug('score decreased by %d for Tobacco7', results['COMPONENTS']['TOBACCO7']['POINTS'])
             results['POINTS'] = results['POINTS'] + results['COMPONENTS']['TOBACCO7']['POINTS']
 
     usedTobaccoInPast6Months = utilities.strToBool(answers['UsedTobaccoInPast6Months'])
@@ -267,7 +267,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     if usedTobaccoInPast6Months is not None:
         if usedTobaccoInPast6Months:
             results['COMPONENTS']['TOBACCO180']['POINTS'] = PointDecreaseForTobaccoUsePast60Days
-            logging.info('score decreased by %d for Tobacco180', results['COMPONENTS']['TOBACCO180']['POINTS'])
+            logging.debug('score decreased by %d for Tobacco180', results['COMPONENTS']['TOBACCO180']['POINTS'])
             results['POINTS'] = results['POINTS'] + results['COMPONENTS']['TOBACCO180']['POINTS']
 
     return results

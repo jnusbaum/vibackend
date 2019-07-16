@@ -67,7 +67,7 @@ def inputs() -> Tuple[str, ...]:
 
 
 def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[str, int]]]]:
-    logging.info("calculating score for %s" % name())
+    logging.debug("calculating score for %s" % name())
 
     results = {'POINTS': 0, 'MAXPOINTS': 0, 'MAXFORANSWERED': 0,
                'COMPONENTS': {'NUMFRUITSSERVS': {'POINTS': 0, 'MAXPOINTS': FruitServingsPoints.max(), 'MAXFORANSWERED': 0},
@@ -90,7 +90,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         results['COMPONENTS']['NUMFRUITANDVEG']['MAXFORANSWERED'] = results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS']
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS']['NUMFRUITANDVEG']['MAXFORANSWERED']
         results['COMPONENTS']['NUMFRUITANDVEG']['POINTS'] = FruitAndVegServingsMap[numberOfFruitServings][numberOfVegServings]
-        logging.info("score increased by total of %d for %s", results['COMPONENTS']['NUMFRUITANDVEG']['POINTS'], 'NUMFRUITANDVEG')
+        logging.debug("score increased by total of %d for %s", results['COMPONENTS']['NUMFRUITANDVEG']['POINTS'], 'NUMFRUITANDVEG')
         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['NUMFRUITANDVEG']['POINTS']
 
     numberOfEightOunceDrinks = utilities.strToKey(answers['NumberDrinks'])
