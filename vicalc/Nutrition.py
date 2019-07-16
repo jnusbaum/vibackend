@@ -85,8 +85,8 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     results = utilities.subpts(numberOfVegServings, 'NUMVEGSERVS', VegetableServingsPoints, results)
 
     # special case
+    results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS']
     if numberOfFruitServings is not None and numberOfVegServings is not None:
-        results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS']
         results['COMPONENTS']['NUMFRUITANDVEG']['MAXFORANSWERED'] = results['COMPONENTS']['NUMFRUITANDVEG']['MAXPOINTS']
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS']['NUMFRUITANDVEG']['MAXFORANSWERED']
         results['COMPONENTS']['NUMFRUITANDVEG']['POINTS'] = FruitAndVegServingsMap[numberOfFruitServings][numberOfVegServings]
