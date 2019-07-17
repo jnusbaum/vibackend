@@ -870,6 +870,10 @@ def get_recommendations_for_result(component_name):
 
         # get specified component
         components = result.result_components.select(lambda c: c.name == component_name)[:]
+        if not components:
+            # component name in URL not correct
+            logging.error("Invalid category specified, %s" % component_name)
+            raise VI404Exception("Invalid category specified, %s" % component_name)
         component = components[0]
 
         if component.maxforanswered / component.maxpoints < .5:
