@@ -861,6 +861,7 @@ def get_recommendations_for_result(component_name):
         result = results[:][0]
         if not result:
             # user has no results
+            logging.error("User has no results meeting the criteria.")
             raise VI404Exception("User has no results meeting the criteria.")
 
         # so here we generate a block of text representing our recommendations for the given component of the latest result
@@ -872,7 +873,7 @@ def get_recommendations_for_result(component_name):
         components = result.result_components.select(lambda c: c.name == component_name)[:]
         if not components:
             # component name in URL not correct
-            logging.error("Invalid category specified, %s" % component_name)
+            logging.error("in recommendations - invalid category specified, %s" % component_name)
             raise VI404Exception("Invalid category specified, %s" % component_name)
         component = components[0]
 
@@ -887,7 +888,7 @@ def get_recommendations_for_result(component_name):
         # look at the subcomponents
         # order them by % of maxforanswered points ascending
         # grab worst 3
-        subs = component.result_sub_components.filter(lambda s: s.points / s.maxforanswered < .75).order_by(
+        subs = component.result_sub_components.filter(lambda s: s.maxforanswered > 0).filter(lambda s: s.points / s.maxforanswered < .75).order_by(
             lambda s: s.points / s.maxforanswered).limit(3)
         for sub in subs:
             logging.debug(
