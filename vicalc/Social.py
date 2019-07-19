@@ -349,19 +349,19 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
 
     # Work Engagement
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKHOURS']['MAXPOINTS']
-    hoursWorked = utilities.strToKey(answers['HoursWorked'])
+    hoursWorked = utilities.strToKey(answers, 'HoursWorked')
 
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKCOMP']['MAXPOINTS']
-    comparisonOfHoursWorkedToDesired = utilities.strToKey(answers['ComparisonHoursWorkedToDesired'])
+    comparisonOfHoursWorkedToDesired = utilities.strToKey(answers, 'ComparisonHoursWorkedToDesired')
 
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKGRAT']['MAXPOINTS']
-    gratificationFromWork = utilities.strToKey(answers['GratificationFromWork'])
+    gratificationFromWork = utilities.strToKey(answers, 'GratificationFromWork')
 
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKCAR']['MAXPOINTS']
-    hoursInCarForWork = utilities.strToKey(answers['HoursInCarForWork'])
+    hoursInCarForWork = utilities.strToKey(answers, 'HoursInCarForWork')
 
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['WORKSTRESS']['MAXPOINTS']
-    stressFromWork = utilities.strToKey(answers['StressFromWork'])
+    stressFromWork = utilities.strToKey(answers, 'StressFromWork')
 
     if hoursWorked is not None:
         results = utilities.subptsanswered(hoursWorked, 'WORKHOURS', HoursSpentWorkingJobPoints, results)
@@ -391,78 +391,78 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     smallOrLargeGroupEventsAnswered = False
     hoursAnswered = False
 
-    hoursSpentHelpingOthers = utilities.strToInt(answers['HoursHelpingFriendsFamily'])
+    hoursSpentHelpingOthers = utilities.strToInt(answers, 'HoursHelpingFriendsFamily')
     if hoursSpentHelpingOthers is not None:
         totalHoursSpentInNonWorkActivities += hoursSpentHelpingOthers
         hoursAnswered = True
         if hoursSpentHelpingOthers > 0:
             # Include gratification and stress scales into average
-            gratificationFromHelpingOthers = utilities.strToInt(answers['GratificationHelpingFriendsFamily'])
+            gratificationFromHelpingOthers = utilities.strToInt(answers, 'GratificationHelpingFriendsFamily')
             if gratificationFromHelpingOthers is not None:
                 gratDenom += 1
                 combinedGratificationScale += gratificationFromHelpingOthers
 
-            stressFromHelpingOthers = utilities.strToInt(answers['StressHelpingFriendsFamily'])
+            stressFromHelpingOthers = utilities.strToInt(answers, 'StressHelpingFriendsFamily')
             if stressFromHelpingOthers is not None:
                 stressDenom += 1
                 combinedStressScale += stressFromHelpingOthers
 
-    hoursVolunteering = utilities.strToInt(answers['HoursVolunteering'])
+    hoursVolunteering = utilities.strToInt(answers, 'HoursVolunteering')
     if hoursVolunteering is not None:
         totalHoursSpentInNonWorkActivities += hoursVolunteering
         hoursAnswered = True
         if hoursVolunteering > 0:
             # Include gratification and stress scales into average
-            gratificationFromVolunteering = utilities.strToInt(answers['GratificationVolunteering'])
+            gratificationFromVolunteering = utilities.strToInt(answers, 'GratificationVolunteering')
             if gratificationFromVolunteering is not None:
                 gratDenom += 1
                 combinedGratificationScale += gratificationFromVolunteering
 
-            stressFromVolunteering = utilities.strToInt(answers['StressVolunteering'])
+            stressFromVolunteering = utilities.strToInt(answers, 'StressVolunteering')
             if stressFromVolunteering is not None:
                 stressDenom += 1
                 combinedStressScale += stressFromVolunteering
 
-    timesSpentInSmallGroupActivities = utilities.strToInt(answers['TimesSmallGroupActivities'])
+    timesSpentInSmallGroupActivities = utilities.strToInt(answers, 'TimesSmallGroupActivities')
     if timesSpentInSmallGroupActivities is not None:
         smallOrLargeGroupEventsAnswered = True
         combinedSmallAndLargeGroupEvents += timesSpentInSmallGroupActivities
         if timesSpentInSmallGroupActivities > 0:
             # Include gratification and stress scales into average
-            gratificationFromSmallGroupActivities = utilities.strToInt(answers['GratificationSmallGroupActivities'])
+            gratificationFromSmallGroupActivities = utilities.strToInt(answers, 'GratificationSmallGroupActivities')
             if gratificationFromSmallGroupActivities is not None:
                 gratDenom += 1
                 combinedGratificationScale += gratificationFromSmallGroupActivities
 
-            stressFromSmallGroupActivities = utilities.strToInt(answers['StressSmallGroupActivities'])
+            stressFromSmallGroupActivities = utilities.strToInt(answers, 'StressSmallGroupActivities')
             if stressFromSmallGroupActivities is not None:
                 stressDenom += 1
                 combinedStressScale += stressFromSmallGroupActivities
 
             # include hours
-            hoursSpentInSmallGroupActivities = utilities.strToInt(answers['HoursSmallGroupActivities'])
+            hoursSpentInSmallGroupActivities = utilities.strToInt(answers, 'HoursSmallGroupActivities')
             if hoursSpentInSmallGroupActivities is not None:
                 totalHoursSpentInNonWorkActivities += hoursSpentInSmallGroupActivities
                 hoursAnswered = True
 
-    timesSpentInLargeGroupActivities = utilities.strToInt(answers['TimesLargeGroupActivities'])
+    timesSpentInLargeGroupActivities = utilities.strToInt(answers, 'TimesLargeGroupActivities')
     if timesSpentInLargeGroupActivities is not None:
         smallOrLargeGroupEventsAnswered = True
         combinedSmallAndLargeGroupEvents += timesSpentInLargeGroupActivities
         if timesSpentInLargeGroupActivities > 0:
             # Include gratification and stress scales into average
-            gratificationFromLargeGroupActivities = utilities.strToInt(answers['GratificationLargeGroupActivities'])
+            gratificationFromLargeGroupActivities = utilities.strToInt(answers, 'GratificationLargeGroupActivities')
             if gratificationFromLargeGroupActivities is not None:
                 gratDenom += 1
                 combinedGratificationScale += gratificationFromLargeGroupActivities
 
-            stressFromLargeGroupActivities = utilities.strToInt(answers['StressLargeGroupActivities'])
+            stressFromLargeGroupActivities = utilities.strToInt(answers, 'StressLargeGroupActivities')
             if stressFromLargeGroupActivities is not None:
                 stressDenom += 1
                 combinedStressScale += stressFromLargeGroupActivities
 
             # include hours
-            hoursSpentInLargeGroupActivities = utilities.strToInt(answers['HoursLargeGroupActivities'])
+            hoursSpentInLargeGroupActivities = utilities.strToInt(answers, 'HoursLargeGroupActivities')
             if hoursSpentInLargeGroupActivities is not None:
                 totalHoursSpentInNonWorkActivities += hoursSpentInLargeGroupActivities
                 hoursAnswered = True
@@ -490,20 +490,20 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['NONWORKSTRESS']['MAXPOINTS']
 
     # Financial
-    difficultyPayingBills = utilities.strToKey(answers['DifficultyPayingBills'])
+    difficultyPayingBills = utilities.strToKey(answers, 'DifficultyPayingBills')
     results = utilities.subpts(difficultyPayingBills, 'FINSTRESS', DifficultyPayingBillsPoints, results)
 
     # Social Network
-    timesMeetingOrSpeakingWithFriend = utilities.strToInt(answers['TimesMeetingSpeakingFriends'])
+    timesMeetingOrSpeakingWithFriend = utilities.strToInt(answers, 'TimesMeetingSpeakingFriends')
     results = utilities.subpts(timesMeetingOrSpeakingWithFriend, 'PRINETWORK', TimesMeetingOrSpeakingWithFriendPoints,
                                results)
 
-    totalPrimaryAndSecondaryFriends = utilities.strToInt(answers['TotalPrimarySecondaryFriends'])
+    totalPrimaryAndSecondaryFriends = utilities.strToInt(answers, 'TotalPrimarySecondaryFriends')
     results = utilities.subpts(totalPrimaryAndSecondaryFriends, 'TOTALNETWORK', TotalPrimaryAndSecondaryFriendsPoints,
                                results)
 
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['COMMUNITYCOH']['MAXPOINTS']
-    haveNeighborThatCanBeReliedOn = utilities.strToBool(answers['HaveNeighborThatCanBeReliedOn'])  # bool
+    haveNeighborThatCanBeReliedOn = utilities.strToBool(answers, 'HaveNeighborThatCanBeReliedOn')  # bool
     if haveNeighborThatCanBeReliedOn is not None:
         results['COMPONENTS']['COMMUNITYCOH']['MAXFORANSWERED'] = results['COMPONENTS']['COMMUNITYCOH']['MAXPOINTS']
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS']['COMMUNITYCOH']['MAXFORANSWERED']
@@ -513,7 +513,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                          'COMMUNITYCOH')
             results['POINTS'] = results['POINTS'] + results['COMPONENTS']['COMMUNITYCOH']['POINTS']
 
-    timesMeetingOrSpeakingWithNonCloseFriends = utilities.strToBool(answers['TimesMeetingSpeakingNonCloseFriends'])
+    timesMeetingOrSpeakingWithNonCloseFriends = utilities.strToBool(answers, 'TimesMeetingSpeakingNonCloseFriends')
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['COMMUNITYINTER']['MAXPOINTS']
     if timesMeetingOrSpeakingWithNonCloseFriends is not None:
         results['COMPONENTS']['COMMUNITYINTER']['MAXFORANSWERED'] = results['COMPONENTS']['COMMUNITYINTER']['MAXPOINTS']
@@ -525,15 +525,15 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
 
     satisfactionTotal = 0
     satisfactionDenom = 0
-    socialSatisfaction = utilities.strToInt(answers['SocialSatisfaction'])
+    socialSatisfaction = utilities.strToInt(answers, 'SocialSatisfaction')
     if socialSatisfaction is not None:
         satisfactionTotal += socialSatisfaction
         satisfactionDenom += 1
-    familyLifeSatisfaction = utilities.strToInt(answers['FamilySatisfaction'])
+    familyLifeSatisfaction = utilities.strToInt(answers, 'FamilySatisfaction')
     if familyLifeSatisfaction is not None:
         satisfactionTotal += familyLifeSatisfaction
         satisfactionDenom += 1
-    workLifeBalanceSatisfaction = utilities.strToInt(answers['BalanceSatisfaction'])
+    workLifeBalanceSatisfaction = utilities.strToInt(answers, 'BalanceSatisfaction')
     if workLifeBalanceSatisfaction is not None:
         satisfactionTotal += workLifeBalanceSatisfaction
         satisfactionDenom += 1
@@ -547,34 +547,34 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     emotionalAnswered = False
 
     # Emotionally Enriching Experiences
-    inRelationShip = utilities.strToBool(answers['InRelationship'])
+    inRelationShip = utilities.strToBool(answers, 'InRelationship')
     if inRelationShip is not None:
         emotionalAnswered = True
         if inRelationShip:
             # Love life / relationship
-            satisfactionWithLoveLife = utilities.strToInt(answers['RelationshipSatisfaction'])
+            satisfactionWithLoveLife = utilities.strToInt(answers, 'RelationshipSatisfaction')
             if satisfactionWithLoveLife is not None:
                 runningTotal += satisfactionWithLoveLife
                 denominatorCount += 1
 
             # Sex life
-            satisfactionWithSexLife = utilities.strToInt(answers['PhysicalSatisfaction'])
+            satisfactionWithSexLife = utilities.strToInt(answers, 'PhysicalSatisfaction')
             if satisfactionWithSexLife is not None:
                 runningTotal += satisfactionWithSexLife
                 denominatorCount += 1
 
     # Pet Owner
-    petOwner = utilities.strToBool(answers['PetOwner'])  # bool
+    petOwner = utilities.strToBool(answers, 'PetOwner')  # bool
     if petOwner is not None:
         emotionalAnswered = True
         if petOwner:
-            gratificationFromBeingPetOwner = utilities.strToInt(answers['GratificationPetOwner'])
+            gratificationFromBeingPetOwner = utilities.strToInt(answers, 'GratificationPetOwner')
             if gratificationFromBeingPetOwner is not None:
                 runningTotal += gratificationFromBeingPetOwner
                 denominatorCount += 1
 
     # Alone time
-    satisfactionOfTimeSpentAlone = utilities.strToInt(answers['SatisfactionTimeAlone'])
+    satisfactionOfTimeSpentAlone = utilities.strToInt(answers, 'SatisfactionTimeAlone')
     if satisfactionOfTimeSpentAlone is not None:
         emotionalAnswered = True
         runningTotal += satisfactionOfTimeSpentAlone
@@ -586,48 +586,48 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['EMOTIONALENRICH']['MAXPOINTS']
 
     # Sleep
-    hoursOfSleep = utilities.strToKey(answers['SleepTime'])
+    hoursOfSleep = utilities.strToKey(answers, 'SleepTime')
     results = utilities.subpts(hoursOfSleep, 'SLEEPHOURS', HoursOfSleepPoints, results)
 
-    satisfactionOfSleep = utilities.strToKey(answers['SatisfactionSleep'])
+    satisfactionOfSleep = utilities.strToKey(answers, 'SatisfactionSleep')
     results = utilities.subpts(satisfactionOfSleep, 'SLEEPSAT', SatisfactionOfSleepPoints, results)
 
     # Quality Of Life
-    satisfactionWithLife = utilities.strToKey(answers['GoodAboutLife'])
+    satisfactionWithLife = utilities.strToKey(answers, 'GoodAboutLife')
     results = utilities.subpts(satisfactionWithLife, 'LIFESAT', SatisfactionWithLifePoints, results)
 
-    energyLevel = utilities.strToKey(answers['EnergyLevel'])
+    energyLevel = utilities.strToKey(answers, 'EnergyLevel')
     results = utilities.subpts(energyLevel, 'ENERGYLVL', EnergyLevelPoints, results)
 
-    abilityToHandleEverythingNeeded = utilities.strToKey(answers['HandleEverythingNeeded'])
+    abilityToHandleEverythingNeeded = utilities.strToKey(answers, 'HandleEverythingNeeded')
     results = utilities.subpts(abilityToHandleEverythingNeeded, 'LIFECONTROL', AbilityToHandleEverythingNeededPoints,
                                results)
 
-    optimismAboutTheFuture = utilities.strToKey(answers['OptimisticAboutFuture'])
+    optimismAboutTheFuture = utilities.strToKey(answers, 'OptimisticAboutFuture')
     results = utilities.subpts(optimismAboutTheFuture, 'OPTIMISM', OptimismAboutTheFuturePoints, results)
 
-    senseOfDirection = utilities.strToKey(answers['SenseOfDirection'])
+    senseOfDirection = utilities.strToKey(answers, 'SenseOfDirection')
     results = utilities.subpts(senseOfDirection, 'DIRECTION', SenseOfDirectionPoints, results)
 
-    anxietyLevel = utilities.strToKey(answers['AnxietyLevel'])
+    anxietyLevel = utilities.strToKey(answers, 'AnxietyLevel')
     results = utilities.subpts(anxietyLevel, 'ANXIETYLVL', anxietyLevelPoints, results)
 
-    needsBeingMet = utilities.strToKey(answers['NeedsBeingMet'])
+    needsBeingMet = utilities.strToKey(answers, 'NeedsBeingMet')
     results = utilities.subpts(needsBeingMet, 'NEEDSMET', NeedsBeingMetPoints, results)
 
-    meaningfulRelationships = utilities.strToKey(answers['MeaningfulRelationships'])
+    meaningfulRelationships = utilities.strToKey(answers, 'MeaningfulRelationships')
     results = utilities.subpts(meaningfulRelationships, 'RELATIONSHIPS', MeaningfulRelationshipsPoints, results)
 
-    overallHappiness = utilities.strToKey(answers['OverallHappiness'])
+    overallHappiness = utilities.strToKey(answers, 'OverallHappiness')
     results = utilities.subpts(overallHappiness, 'OVERALLHAPPY', OverallHappinessPoints, results)
 
-    overallStressLevel = utilities.strToKey(answers['OverallStressLevel'])
+    overallStressLevel = utilities.strToKey(answers, 'OverallStressLevel')
     results = utilities.subpts(overallStressLevel, 'OVERALLSTRESS', OverallStressLevelPoints, results)
 
-    overallAnxietyLevel = utilities.strToKey(answers['OverallAnxietyLevel'])
+    overallAnxietyLevel = utilities.strToKey(answers, 'OverallAnxietyLevel')
     results = utilities.subpts(overallAnxietyLevel, 'OVERALLANXIETY', OverallAnxietyLevelPoints, results)
 
-    overallSatisfaction = utilities.strToKey(answers['OverallLifeSatisfaction'])
+    overallSatisfaction = utilities.strToKey(answers, 'OverallLifeSatisfaction')
     results = utilities.subpts(overallSatisfaction, 'OVERALLSAT', OverallSatisfactionPoints, results)
 
     # scale score

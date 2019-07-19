@@ -47,52 +47,127 @@ class PointsMap(object):
 
 
 # answer handlers
-def yesNoToBool(ans: str) -> Union[bool, None]:
+# let these throw ValueError
+def yesNoToBool(answers: Dict[str, str], qname: str) -> Union[bool, None]:
+    ans = None
+    try:
+        ans = answers[qname]
+    except KeyError as ke:
+        # TODO this is an error now as we expect to have an answer
+        # sometimes None, for every question
+        # later we will not provide any dict entry for questions with no answers
+        logging.error("No answer for %s", qname)
+    # this should be None if no answer but we check for None or empty string ''
     if ans:
         if ans in ('Yes', 'yes'):
             return True
         elif ans in ('No', 'no'):
             return False
+        else:
+            logging.error("answer is not yes/no - %s", ans)
     return None
 
 
-def strToBool(ans: str) -> Union[bool, None]:
+def strToBool(answers: Dict[str, str], qname: str) -> Union[bool, None]:
+    ans = None
+    try:
+        ans = answers[qname]
+    except KeyError as ke:
+        # TODO this is an error now as we expect to have an answer
+        # sometimes None, for every question
+        # later we will not provide any dict entry for questions with no answers
+        logging.error("No answer for %s", qname)
+    # this should be None if no answer but we check for None or empty string ''
     if ans:
         if ans in ('1', 'Yes', 'yes', 'True', 'true'):
             return True
         elif ans in ('0', 'No', 'no', 'False', 'false'):
             return False
+        else:
+            logging.error("answer is not legal bool - %s", ans)
     return None
 
 
-def strToInt(ans: str) -> Union[int, None]:
+def strToInt(answers: Dict[str, str], qname: str) -> Union[int, None]:
+    ans = None
+    try:
+        ans = answers[qname]
+    except KeyError as ke:
+        # TODO this is an error now as we expect to have an answer
+        # sometimes None, for every question
+        # later we will not provide any dict entry for questions with no answers
+        logging.error("No answer for %s", qname)
+    # this should be None if no answer but we check for None or empty string ''
     if ans:
         return int(ans)
+    else:
+        logging.error("answer is not legal int - %s", ans)
     return None
 
 
-def strToDate(ans: str) -> Union[date, None]:
+def strToDate(answers: Dict[str, str], qname: str) -> Union[date, None]:
+    ans = None
+    try:
+        ans = answers[qname]
+    except KeyError as ke:
+        # TODO this is an error now as we expect to have an answer
+        # sometimes None, for every question
+        # later we will not provide any dict entry for questions with no answers
+        logging.error("No answer for %s", qname)
+    # this should be None if no answer but we check for None or empty string ''
     if ans:
         return datetime.strptime(ans, "%Y-%m-%d").date()
+    else:
+        logging.error("answer is not legal Date - %s", ans)
     return None
 
 
-def strToDatetime(ans: str) -> Union[datetime, None]:
-    import datetime
+def strToDatetime(answers: Dict[str, str], qname: str) -> Union[datetime, None]:
+    ans = None
+    try:
+        ans = answers[qname]
+    except KeyError as ke:
+        # TODO this is an error now as we expect to have an answer
+        # sometimes None, for every question
+        # later we will not provide any dict entry for questions with no answers
+        logging.error("No answer for %s", qname)
+    # this should be None if no answer but we check for None or empty string ''
     if ans:
-        d = datetime.datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
+        d = datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
         # assumed to be in UTC
         return d
+    else:
+        logging.error("answer is not legal Datetime - %s", ans)
     return None
 
 
-def strToIndex(ans: str) -> Union[int, None]:
+def strToIndex(answers: Dict[str, str], qname: str) -> Union[int, None]:
+    ans = None
+    try:
+        ans = answers[qname]
+    except KeyError as ke:
+        # TODO this is an error now as we expect to have an answer
+        # sometimes None, for every question
+        # later we will not provide any dict entry for questions with no answers
+        logging.error("No answer for %s", qname)
+    # this should be None if no answer but we check for None or empty string ''
     if ans:
         return int(ans)
+    else:
+        logging.error("answer is not legal int - %s", ans)
     return None
 
 
-def strToKey(ans: str) -> Union[str, None]:
+def strToKey(answers: Dict[str, str], qname: str) -> Union[str, None]:
+    ans = None
+    try:
+        ans = answers[qname]
+    except KeyError as ke:
+        # TODO this is an error now as we expect to have an answer
+        # sometimes None, for every question
+        # later we will not provide any dict entry for questions with no answers
+        logging.error("No answer for %s", qname)
+    # this should be None if no answer but we check for None or empty string ''
     if ans:
         return ans
     return None

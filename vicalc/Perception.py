@@ -77,17 +77,17 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                               'RELIEDOTHERS': {'POINTS': 0, 'MAXPOINTS': HowMuchRelianceOnOthersPoints.max(), 'MAXFORANSWERED': 0},
                               'PERCEIVEDHEALTH': {'POINTS': 0, 'MAXPOINTS': OverallPerceivedHealthPoints.max(), 'MAXFORANSWERED': 0}}}
 
-    painAffectedActivities = utilities.strToKey(answers['PainInterferedWithActivities'])
+    painAffectedActivities = utilities.strToKey(answers, 'PainInterferedWithActivities')
     results = utilities.subpts(painAffectedActivities, 'PAINLIFE', PainInterferingWithLifePoints, results)
 
-    otherFactorsAffectedActivities = utilities.strToKey(answers['OtherFactorsInterferedWithActivities'])
+    otherFactorsAffectedActivities = utilities.strToKey(answers, 'OtherFactorsInterferedWithActivities')
     results = utilities.subpts(otherFactorsAffectedActivities, 'HEALTHLIFE', HealthFactorsInterferingWithLifePoints,
                                results)
 
-    reliedOnOthersForHelp = utilities.strToKey(answers['ReliedOnOthersForHelp'])
+    reliedOnOthersForHelp = utilities.strToKey(answers, 'ReliedOnOthersForHelp')
     results = utilities.subpts(reliedOnOthersForHelp, 'RELIEDOTHERS', HowMuchRelianceOnOthersPoints, results)
 
-    overallHealth = utilities.strToKey(answers['OverallHealth'])
+    overallHealth = utilities.strToKey(answers, 'OverallHealth')
     results = utilities.subpts(overallHealth, 'PERCEIVEDHEALTH', OverallPerceivedHealthPoints, results)
 
     return results

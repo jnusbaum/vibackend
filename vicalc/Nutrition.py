@@ -78,10 +78,10 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                               'NUMWATERDRINKS': {'POINTS': 0, 'MAXPOINTS': WaterServingsPoints.max(), 'MAXFORANSWERED': 0},
                               'NUMALCDRINKS': {'POINTS': 0, 'MAXPOINTS': AlcoholicDrinksMalePoints.max(), 'MAXFORANSWERED': 0}}}
 
-    numberOfFruitServings  = utilities.strToKey(answers['NumberFruitServings'])
+    numberOfFruitServings  = utilities.strToKey(answers, 'NumberFruitServings')
     results = utilities.subpts(numberOfFruitServings, 'NUMFRUITSSERVS', FruitServingsPoints, results)
 
-    numberOfVegServings = utilities.strToKey(answers['NumberVegetableServings'])
+    numberOfVegServings = utilities.strToKey(answers, 'NumberVegetableServings')
     results = utilities.subpts(numberOfVegServings, 'NUMVEGSERVS', VegetableServingsPoints, results)
 
     # special case
@@ -93,16 +93,16 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         logging.debug("score increased by total of %d for %s", results['COMPONENTS']['NUMFRUITANDVEG']['POINTS'], 'NUMFRUITANDVEG')
         results['POINTS'] = results['POINTS'] + results['COMPONENTS']['NUMFRUITANDVEG']['POINTS']
 
-    numberOfEightOunceDrinks = utilities.strToKey(answers['NumberDrinks'])
+    numberOfEightOunceDrinks = utilities.strToKey(answers, 'NumberDrinks')
     results = utilities.subpts(numberOfEightOunceDrinks, 'NUMDRINKS', EightOunceDrinksPoints, results)
 
-    numberOfWaterServings = utilities.strToKey(answers['NumberWaterDrinks'])
+    numberOfWaterServings = utilities.strToKey(answers, 'NumberWaterDrinks')
     results = utilities.subpts(numberOfWaterServings, 'NUMWATERDRINKS', WaterServingsPoints, results)
 
-    numberOfCaffeinatedDrinks = utilities.strToKey(answers['NumberCaffeinatedDrinks'])
+    numberOfCaffeinatedDrinks = utilities.strToKey(answers, 'NumberCaffeinatedDrinks')
     results = utilities.subpts(numberOfCaffeinatedDrinks, 'NUMCAFDRINKS', CaffeinatedDrinksPoints, results)
 
-    numberOfAlcoholicDrinks = utilities.strToKey(answers['NumberAlcoholicDrinks'])
+    numberOfAlcoholicDrinks = utilities.strToKey(answers, 'NumberAlcoholicDrinks')
     isMale = utilities.isMale(answers['Gender'])
     if isMale is not None:
         if isMale:
