@@ -99,9 +99,10 @@ def strToInt(answers: Dict[str, str], qname: str) -> Union[int, None]:
         logging.error("No answer for %s", qname)
     # this should be None if no answer but we check for None or empty string ''
     if ans:
-        return int(ans)
-    else:
-        logging.error("answer is not legal int - %s", ans)
+        try:
+            return int(ans)
+        except ValueError as ve:
+            logging.error("answer is not legal int - %s", ans)
     return None
 
 
@@ -116,9 +117,10 @@ def strToDate(answers: Dict[str, str], qname: str) -> Union[date, None]:
         logging.error("No answer for %s", qname)
     # this should be None if no answer but we check for None or empty string ''
     if ans:
-        return datetime.strptime(ans, "%Y-%m-%d").date()
-    else:
-        logging.error("answer is not legal Date - %s", ans)
+        try:
+            return datetime.strptime(ans, "%Y-%m-%d").date()
+        except ValueError as ve:
+            logging.error("answer is not legal Date - %s", ans)
     return None
 
 
@@ -133,11 +135,10 @@ def strToDatetime(answers: Dict[str, str], qname: str) -> Union[datetime, None]:
         logging.error("No answer for %s", qname)
     # this should be None if no answer but we check for None or empty string ''
     if ans:
-        d = datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
-        # assumed to be in UTC
-        return d
-    else:
-        logging.error("answer is not legal Datetime - %s", ans)
+        try:
+            return datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
+        except ValueError as ve:
+            logging.error("answer is not legal Datetime - %s", ans)
     return None
 
 
@@ -152,9 +153,10 @@ def strToIndex(answers: Dict[str, str], qname: str) -> Union[int, None]:
         logging.error("No answer for %s", qname)
     # this should be None if no answer but we check for None or empty string ''
     if ans:
-        return int(ans)
-    else:
-        logging.error("answer is not legal int - %s", ans)
+        try:
+            return int(ans)
+        except ValueError as ve:
+            logging.error("answer is not legal index - %s", ans)
     return None
 
 
