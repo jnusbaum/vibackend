@@ -251,7 +251,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
 
     # tobacco use
     # these are subtractions so MAX and MAXFORANSWERED stay at the default 0
-    usedTobaccoInPast7Days = utilities.strToBool(answers['UsedTobaccoInPast7Days'])
+    usedTobaccoInPast7Days = utilities.strToBool(answers, 'UsedTobaccoInPast7Days')
     # have to check for None here as that indicates no answer, False is valid answer
     if usedTobaccoInPast7Days is not None:
         if usedTobaccoInPast7Days:
@@ -259,7 +259,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
             logging.debug('score decreased by %d for Tobacco7', results['COMPONENTS']['TOBACCO7']['POINTS'])
             results['POINTS'] = results['POINTS'] + results['COMPONENTS']['TOBACCO7']['POINTS']
 
-    usedTobaccoInPast6Months = utilities.strToBool(answers['UsedTobaccoInPast6Months'])
+    usedTobaccoInPast6Months = utilities.strToBool(answers, 'UsedTobaccoInPast6Months')
     # have to check for None here as that indicates no answer, False is valid answer
     if usedTobaccoInPast6Months is not None:
         if usedTobaccoInPast6Months:
