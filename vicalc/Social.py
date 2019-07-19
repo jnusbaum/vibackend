@@ -134,8 +134,8 @@ TotalHoursOfNonWorkActivitiesRange = utilities.PointsRange(((0, 0), (50, 15), (6
 
 TimesMeetingOrSpeakingWithFriendPoints = utilities.PointsRange(((0, 0), (2, 5)), 10)
 TotalPrimaryAndSecondaryFriendsPoints = utilities.PointsRange(((0, 0), (2, 5)), 10)
-TimesMeetingOrSpeakingWithNonCloseFriendsPoints = utilities.PointsRange(((0, 0),), 5)
 SocialSatisfactionRange = utilities.PointsRange(((2, 0), (5, 10), (8, 15)), 20)
+PointsIncreaseForMeetingOrSpeakingWithNonCloseFriends = 5
 
 CommunityCohesionVIPoints: int = 5
 
@@ -329,7 +329,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                               'PRINETWORK': {'POINTS': 0, 'MAXPOINTS': TimesMeetingOrSpeakingWithFriendPoints.max(), 'MAXFORANSWERED': 0},
                               'TOTALNETWORK': {'POINTS': 0, 'MAXPOINTS': TotalPrimaryAndSecondaryFriendsPoints.max(), 'MAXFORANSWERED': 0},
                               'COMMUNITYCOH': {'POINTS': 0, 'MAXPOINTS': CommunityCohesionVIPoints, 'MAXFORANSWERED': 0},
-                              'COMMUNITYINTER': {'POINTS': 0, 'MAXPOINTS': TimesMeetingOrSpeakingWithNonCloseFriendsPoints.max(), 'MAXFORANSWERED': 0},
+                              'COMMUNITYINTER': {'POINTS': 0, 'MAXPOINTS': PointsIncreaseForMeetingOrSpeakingWithNonCloseFriends, 'MAXFORANSWERED': 0},
                               'SOCIALSAT': {'POINTS': 0, 'MAXPOINTS': SocialSatisfactionRange.max(), 'MAXFORANSWERED': 0},
                               'EMOTIONALENRICH': {'POINTS': 0, 'MAXPOINTS': EmotionalEnrichmentRange.max(), 'MAXFORANSWERED': 0},
                               'SLEEPHOURS': {'POINTS': 0, 'MAXPOINTS': HoursOfSleepPoints.max(), 'MAXFORANSWERED': 0},
@@ -513,9 +513,15 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                          'COMMUNITYCOH')
             results['POINTS'] = results['POINTS'] + results['COMPONENTS']['COMMUNITYCOH']['POINTS']
 
-    timesMeetingOrSpeakingWithNonCloseFriends = utilities.strToInt(answers['TimesMeetingSpeakingNonCloseFriends'])
-    results = utilities.subpts(timesMeetingOrSpeakingWithNonCloseFriends, 'COMMUNITYINTER',
-                               TimesMeetingOrSpeakingWithNonCloseFriendsPoints, results)
+    timesMeetingOrSpeakingWithNonCloseFriends = utilities.strToBool(answers['TimesMeetingSpeakingNonCloseFriends'])
+    results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['COMMUNITYINTER']['MAXPOINTS']
+    if timesMeetingOrSpeakingWithNonCloseFriends is not None:
+        results['COMPONENTS']['COMMUNITYINTER']['MAXFORANSWERED'] = results['COMPONENTS']['COMMUNITYINTER']['MAXPOINTS']
+        results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS']['COMMUNITYINTER']['MAXFORANSWERED']
+        if timesMeetingOrSpeakingWithNonCloseFriends:
+            results['COMPONENTS']['COMMUNITYINTER']['POINTS'] = PointsIncreaseForMeetingOrSpeakingWithNonCloseFriends
+            logging.debug('score increased by %d for CommunityInteraction', results['COMPONENTS']['COMMUNITYINTER']['POINTS'])
+            results['POINTS'] = results['POINTS'] + results['COMPONENTS']['COMMUNITYINTER']['POINTS']
 
     satisfactionTotal = 0
     satisfactionDenom = 0
