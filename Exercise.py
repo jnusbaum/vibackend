@@ -100,15 +100,15 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
 
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['EXERCISE']['MAXPOINTS']
     # answer should be int
-    minsExercised = utilities.strToInt(answers['MinutesPhysicalActivity'])
+    minsExercised = utilities.strToInt(answers, 'MinutesPhysicalActivity')
     if minsExercised:
         results['COMPONENTS']['EXERCISE']['MAXFORANSWERED'] = results['COMPONENTS']['EXERCISE']['MAXPOINTS']
         results['MAXFORANSWERED'] = results['MAXFORANSWERED'] + results['COMPONENTS']['EXERCISE']['MAXFORANSWERED']
 
         if minsExercised > 0:
-            bdate = utilities.strToDate(answers['BirthDate'])
-            minutesVigorousActivity = utilities.strToInt(answers['MinutesVigorousExercise'])
-            minutesModerateActivity = utilities.strToInt(answers['MinutesModerateExercise'])
+            bdate = utilities.strToDate(answers, 'BirthDate')
+            minutesVigorousActivity = utilities.strToInt(answers, 'MinutesVigorousExercise')
+            minutesModerateActivity = utilities.strToInt(answers, 'MinutesModerateExercise')
             if bdate is not None and minutesVigorousActivity is not None and minutesModerateActivity is not None:
                 age = utilities.ageFromBirthDate(bdate)
 
@@ -209,29 +209,29 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                                 results['COMPONENTS']['EXERCISE']['POINTS'] = expts
                                 results['POINTS'] = results['POINTS'] + results['COMPONENTS']['EXERCISE']['POINTS']
 
-    daysExercised = utilities.strToKey(answers['DaysPhysicalActivity'])
+    daysExercised = utilities.strToKey(answers, 'DaysPhysicalActivity')
     results = utilities.subpts(daysExercised, 'DAYSEX', DaysPhysicalActivityPoints, results)
 
-    daysOfResistanceExercise = utilities.strToKey(answers['DaysResistanceExercise'])
+    daysOfResistanceExercise = utilities.strToKey(answers, 'DaysResistanceExercise')
     results = utilities.subpts(daysOfResistanceExercise, 'DAYSRES', DaysResistanceExercisePoints, results)
 
-    setsOfResistanceExercisePerDay = utilities.strToKey(answers['SetsResistanceExercise'])
+    setsOfResistanceExercisePerDay = utilities.strToKey(answers, 'SetsResistanceExercise')
     results = utilities.subpts(setsOfResistanceExercisePerDay, 'SETSRES', SetsResistanceExercisePoints, results)
 
-    daysOfFlexibilityExercise = utilities.strToKey(answers['DaysFlexibilityExercise'])
+    daysOfFlexibilityExercise = utilities.strToKey(answers, 'DaysFlexibilityExercise')
     results = utilities.subpts(daysOfFlexibilityExercise, 'DAYSFLEX', DaysFlexibilityExercisePoints, results)
 
-    minutesOfFlexibilityActivity = utilities.strToKey(answers['MinutesFlexibilityActivity'])
+    minutesOfFlexibilityActivity = utilities.strToKey(answers, 'MinutesFlexibilityActivity')
     results = utilities.subpts(minutesOfFlexibilityActivity, 'MINSFLEX', MinutesFlexibilityActivityPoints, results)
 
-    daysOfBalanceAndAgilityExercise = utilities.strToKey(answers['DaysBalanceAgilityExercise'])
+    daysOfBalanceAndAgilityExercise = utilities.strToKey(answers, 'DaysBalanceAgilityExercise')
     results = utilities.subpts(daysOfBalanceAndAgilityExercise, 'DAYSBAL', MinutesFlexibilityActivityPoints, results)
 
-    minutesOfBalanceAndAgilityActivity = utilities.strToKey(answers['MinutesBalanceAgilityActivity'])
+    minutesOfBalanceAndAgilityActivity = utilities.strToKey(answers, 'MinutesBalanceAgilityActivity')
     results = utilities.subpts(minutesOfBalanceAndAgilityActivity, 'MINSBAL', MinutesBalanceAndAgilityActivityPoints,
                                results)
 
-    nonSedentaryHoursPerDay = utilities.strToKey(answers['AverageHoursNonSedentary'])
+    nonSedentaryHoursPerDay = utilities.strToKey(answers, 'AverageHoursNonSedentary')
     results = utilities.subpts(nonSedentaryHoursPerDay, 'HOURSNONSED', NonSedentaryBehaviorPoints, results)
 
     return results
