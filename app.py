@@ -9,11 +9,7 @@ import logging
 import pprint
 # date and time stuff
 from datetime import timedelta
-
 from passlib.hash import argon2
-
-from msrestazure.azure_active_directory import MSIAuthentication
-from azure.keyvault.key_vault_client import KeyVaultClient
 
 # Flask
 from flask import Flask, request
@@ -36,8 +32,8 @@ from views import *
 
 # data model
 from vidb.models import *
-# email celery server
-from vimailserver import mail_server
+# email celery tasks
+from vimailserver import mail_tasks
 
 
 app = Flask(__name__)
@@ -229,7 +225,7 @@ def reset_password_start():
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
     # send email
-    mail_server.send_password_reset.delay(email, url, token)
+    mail_tasks.send_password_reset.delay(email, url, token)
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
