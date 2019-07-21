@@ -12,6 +12,9 @@ from datetime import timedelta
 
 from passlib.hash import argon2
 
+from msrestazure.azure_active_directory import MSIAuthentication
+from azure.keyvault.key_vault_client import KeyVaultClient
+
 # Flask
 from flask import Flask, request
 from flask import jsonify
