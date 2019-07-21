@@ -11,8 +11,6 @@ import pprint
 import smtplib
 # date and time stuff
 from datetime import timedelta
-# import email utilities
-from email.message import EmailMessage
 
 from passlib.hash import argon2
 
@@ -37,6 +35,8 @@ from views import *
 
 # data model
 from vidb.models import *
+# email celery server
+from vimailserver.mail_server import send_password_reset
 
 
 app = Flask(__name__)
@@ -51,10 +51,7 @@ app.config['DATABASE'] = os.getenv('DATABASE')
 app.config['DBUSER'] = os.getenv('DBUSER')
 app.config['DBPWD'] = os.getenv('DBPWD')
 app.config['DBSSLMODE'] = os.getenv('DBSSLMODE')
-# email
-app.config['MAILSVR'] = os.getenv('MAILSVR')
-app.config['MAILUSER'] = os.getenv('MAILUSER')
-app.config['MAILPWD'] = os.getenv('MAILPWD')
+
 # itsdangerous, jwt and flask keys
 app.config['SECRET_KEY'] = os.getenv('FLASKKEY')
 app.config['JWT_SECRET_KEY'] = os.getenv('JWTKEY')
@@ -200,65 +197,6 @@ def check_user(role_set: Tuple[str, ...]) -> User:
     return user
 
 
-def buildmailcontent(url: str, token) -> EmailMessage:
-    msg = EmailMessage()
-
-    # set the plain text body
-    text = """
-    You have made a request to reset your password at vitalityindex.com. Cut and paste this link into your browser
-    to be taken to a password reset page. This link will only be valid for 30 minutes.
-    {url}
-    """.format(url=url).format(token=token)
-    msg.set_content(text)
-
-    # set an alternative html body
-    html = """
-    <html>
-    <body lang="en-US" dir="ltr">
-    <p>
-        You have made a request to reset your password at vitalityindex.com. Click on this link to
-        be taken to a password reset page. This link will only be valid for 30 minutes.
-    </p>
-    <p>
-        <a href="{url}">Password Reset</a></p>
-    </p>
-    </body>
-    </html>
-    """.format(url=url).format(token=token)
-    msg.add_alternative(html, subtype='html')
-    return msg
-
-
-def sendmail(email: str, url: str, token) -> None:
-    msg = buildmailcontent(url, token)
-    # me == the sender's email address
-    # you == the recipient's email address
-    me = app.config['MAILUSER']
-    you = email
-
-    # generic email headers
-    msg['Subject'] = 'Vitality Index password reset'
-    msg['From'] = me
-    msg['To'] = you
-
-    # the message is ready now
-    try:
-        logging.debug(
-            "connecting to %s as %s:%s" % (app.config['MAILSVR'], app.config['MAILUSER'], app.config['MAILPWD']))
-        server = smtplib.SMTP(app.config['MAILSVR'], 587)
-        server.starttls()
-        server.login(app.config['MAILUSER'], app.config['MAILPWD'])
-    except smtplib.SMTPException:
-        logging.error("error connecting to SMTP server")
-        raise VI500Exception("Error connecting to SMTP server.")
-    try:
-        server.sendmail(me, you, msg.as_string())
-        server.quit()
-    except smtplib.SMTPException:
-        logging.error("error sending email")
-        raise VI500Exception("Error sending email.")
-
-
 # Define our callback function to check if a token has been revoked or not
 @jwt.token_in_blacklist_loader
 def check_if_token_revoked(decoded_token):
@@ -290,7 +228,7 @@ def reset_password_start():
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
     # send email
-    sendmail(email, url, token)
+    send_password_reset.delay(email, url, token)
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
