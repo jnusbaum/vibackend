@@ -7,8 +7,6 @@ from typing import Tuple, Union
 import logging
 # pretty printing/formatting
 import pprint
-# Import smtplib for sending the email
-import smtplib
 # date and time stuff
 from datetime import timedelta
 
