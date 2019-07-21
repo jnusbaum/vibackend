@@ -34,7 +34,6 @@ secret = key_vault_client.get_secret(key_vault_uri, "MAILPWD", "")
 mailpwd = secret.value
 
 print("connecting to %s:%s:%s" % (dbhost, database, dbuser))
-      
 # configure from environment variables
 # these will come in secure form from azure app settings in azure deployment
 # database/pony
@@ -45,6 +44,7 @@ db.bind(provider='postgres', host=dbhost,
         sslmode=dbsslmode)
 db.generate_mapping()
 
+print("celery broker - %s" % broker)
 app = Celery('mail_server', broker=broker)
 
 index_id = "Vitality Index"
@@ -291,7 +291,7 @@ def sendmail(email, msg):
         raise me
 
 
-@app.task
+@app.task(name='mail_server.send_welcome')
 @db_session
 def send_welcome(user_id: int):
 
@@ -312,7 +312,7 @@ def send_welcome(user_id: int):
     user.last_notification = datetime.utcnow()
 
 
-@app.task
+@app.task(name='mail_server.send_reminder')
 @db_session
 def send_reminder(user_id: int, counts: Dict[str, Dict[str, int]]):
 
@@ -334,7 +334,7 @@ def send_reminder(user_id: int, counts: Dict[str, Dict[str, int]]):
     user.last_notification = datetime.utcnow()
 
 
-@app.task
+@app.task(name='mail_server.send_password_reset')
 def send_password_reset(email: str, url: str, token):
 
     # me == the sender's email address
