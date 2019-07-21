@@ -34,7 +34,7 @@ from views import *
 # data model
 from vidb.models import *
 # email celery server
-from vimailserver.mail_server import send_password_reset
+from vimailserver import mail_server
 
 
 app = Flask(__name__)
@@ -226,7 +226,7 @@ def reset_password_start():
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
     # send email
-    send_password_reset.delay(email, url, token)
+    mail_server.send_password_reset.delay(email, url, token)
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
