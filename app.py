@@ -32,9 +32,15 @@ from views import *
 
 # data model
 from vidb.models import *
-# email celery tasks
-from vimailserver import mail_tasks
 
+from msrestazure.azure_active_directory import MSIAuthentication
+from azure.keyvault.key_vault_client import KeyVaultClient
+
+credentials = MSIAuthentication(resource='https://vault.azure.net')
+key_vault_client = KeyVaultClient(credentials)
+key_vault_uri = 'https://viinc.vault.azure.net'
+secret = key_vault_client.get_secret(key_vault_uri, "MAILPWD", "")
+mailpwd = secret.value
 
 app = Flask(__name__)
 # set up config
@@ -225,7 +231,7 @@ def reset_password_start():
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
     # send email
-    mail_tasks.send_password_reset.delay(email, url, token)
+    # mail_tasks.send_password_reset.delay(email, url, token)
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
