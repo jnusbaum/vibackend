@@ -247,7 +247,7 @@ def sendmail(email, msg):
         raise me
 
 
-@celery.task(name='mail_server.send_welcome')
+@celery.task(name='mail_tasks.send_welcome')
 @db_session
 def send_welcome(user_id: int):
 
@@ -268,7 +268,7 @@ def send_welcome(user_id: int):
     user.last_notification = datetime.utcnow()
 
 
-@celery.task(name='mail_server.send_reminder')
+@celery.task(name='mail_tasks.send_reminder')
 @db_session
 def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]):
 
@@ -290,7 +290,7 @@ def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]
     user.last_notification = datetime.utcnow()
 
 
-@celery.task(name='mail_server.send_password_reset')
+@celery.task(name='mail_tasks.send_password_reset')
 def send_password_reset(email: str, url: str, token):
 
     # me == the sender's email address
@@ -306,3 +306,4 @@ def send_password_reset(email: str, url: str, token):
     msg['To'] = you
 
     sendmail(you, msg)
+    
