@@ -1,28 +1,10 @@
-import os
 import logging
-from datetime import datetime
-# Import smtplib for sending the email
-import smtplib
 from email.message import EmailMessage
 from typing import Dict
-
-from msrestazure.azure_active_directory import MSIAuthentication
-from azure.keyvault.key_vault_client import KeyVaultClient
-
+import smtplib
 from vidb.models import *
-from celery import Celery
 
-broker = os.getenv('REDISBROKER')
-celery = Celery('mail_server', broker=broker)
-
-mailsvr = os.getenv('MAILSVR')
-mailuser = os.getenv('MAILUSER')
-credentials = MSIAuthentication(resource='https://vault.azure.net')
-key_vault_client = KeyVaultClient(credentials)
-key_vault_uri = 'https://viinc.vault.azure.net'
-secret = key_vault_client.get_secret(key_vault_uri, "MAILPWD", "")
-mailpwd = secret.value
-
+from celery_config import celery, mailuser, mailsvr, mailpwd
 
 def build_reminder_mail(name: str, index_id: str, counts: Dict[str, Dict[str, int]]) -> EmailMessage:
     msg = EmailMessage()
@@ -265,7 +247,7 @@ def sendmail(email, msg):
         raise me
 
 
-@celery.task(name='mail_server.send_welcome')
+@celery.task
 @db_session
 def send_welcome(user_id: int):
 
@@ -286,7 +268,7 @@ def send_welcome(user_id: int):
     user.last_notification = datetime.utcnow()
 
 
-@celery.task(name='mail_server.send_reminder')
+@celery.task
 @db_session
 def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]):
 
@@ -308,7 +290,7 @@ def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]
     user.last_notification = datetime.utcnow()
 
 
-@celery.task(name='mail_server.send_password_reset')
+@celery.task
 def send_password_reset(email: str, url: str, token):
 
     # me == the sender's email address
