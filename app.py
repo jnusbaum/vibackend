@@ -225,7 +225,7 @@ def reset_password_start():
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
     # send email
-    mail_server.send_password_reset.delay(email, url, token)
+    mail_tasks.send_password_reset.delay(email, url, token)
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
