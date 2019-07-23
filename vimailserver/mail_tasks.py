@@ -1,56 +1,12 @@
-import os
 import logging
-# Import smtplib for sending the email
-import smtplib
 from email.message import EmailMessage
 from typing import Dict
-
-from msrestazure.azure_active_directory import MSIAuthentication
-from azure.keyvault.key_vault_client import KeyVaultClient
-
+import smtplib
 from vidb.models import *
 
-from celery import Celery
+from celery_config import celery, mailuser, mailsvr, mailpwd
 
-dbhost = os.getenv('DBHOST')
-database = os.getenv('DATABASE')
-dbuser = os.getenv('DBUSER')
-dbsslmode = os.getenv('DBSSLMODE')
-
-mailsvr = os.getenv('MAILSVR')
-mailuser = os.getenv('MAILUSER')
-
-broker = os.getenv('REDISBROKER')
-
-# Create MSI Authentication
-credentials = MSIAuthentication(resource='https://vault.azure.net')
-key_vault_client = KeyVaultClient(credentials)
-key_vault_uri = 'https://viinc.vault.azure.net'
-
-secret = key_vault_client.get_secret(key_vault_uri, "BACKEND-DB-PWD", "")
-dbpwd = secret.value
-
-secret = key_vault_client.get_secret(key_vault_uri, "MAILPWD", "")
-mailpwd = secret.value
-
-print("connecting to %s:%s:%s" % (dbhost, database, dbuser))
-      
-# configure from environment variables
-# these will come in secure form from azure app settings in azure deployment
-# database/pony
-db.bind(provider='postgres', host=dbhost,
-        database=database,
-        user=dbuser,
-        password=dbpwd,
-        sslmode=dbsslmode)
-db.generate_mapping()
-
-app = Celery('mail_server', broker=broker)
-
-index_id = "Vitality Index"
-
-
-def build_reminder_mail(name: str, counts: Dict[str, Dict[str, int]]) -> EmailMessage:
+def build_reminder_mail(name: str, index_id: str, counts: Dict[str, Dict[str, int]]) -> EmailMessage:
     msg = EmailMessage()
 
     # set the plain text body
@@ -70,10 +26,8 @@ def build_reminder_mail(name: str, counts: Dict[str, Dict[str, int]]) -> EmailMe
         Perception: {panswered}/{ptotal}
         Social: {sanswered}/{stotal}
 
-        Thank you and please come back to http://www.vitalityindex.com often
-        to answer more questions and update ones you have already answered. 
-        The more questions you answer and the more frequently you update your answers
-        the better the Vitality Index will reflect your current state of well-being.
+        Thank you and please come back to http://www.vitalityindex.com often.
+    
 
         Be Healthy | Be Happy | Be Your Best
     """.format(name=name,
@@ -106,10 +60,7 @@ def build_reminder_mail(name: str, counts: Dict[str, Dict[str, int]]) -> EmailMe
             <tr><td>Social:</td><td>{sanswered}/{stotal}</td></tr>
 
         </table>
-        <p>Thank you and please come back to our <a href="http://www.vitalityindex.com">website</a> often
-            to answer more questions and update ones you
-            have already answered. The more questions you answer and the more frequently you update your answers
-            the better the Vitality Index will reflect your current state of well-being.
+        <p>Thank you and please come back to our <a href="http://www.vitalityindex.com">website</a> often.
         </p>
         <h2>Be Healthy | Be Happy | Be Your Best</h2>
         </body>
@@ -145,7 +96,7 @@ def build_welcome_mail(name: str) -> EmailMessage:
         after all is an intensely holistic emotion that depends on physical and mental factors -
         and it is also intensely personal.
 
-        Despite the advances in sciences and technology there is still a lot that is not yet known
+        Despite the advances in science and technology there is still a lot that is not yet known
         or well understood and part of our mission is to advance the science of happiness and
         share our insights with our community of users. Happiness has been directly linked to
         health and longevity and vice versa. Helping you improve, no matter how much or little,
@@ -199,7 +150,7 @@ def build_welcome_mail(name: str) -> EmailMessage:
                 after all is an intensely holistic emotion that depends on physical and mental factors -
                 and it is also intensely personal.
             </p>
-            <p>Despite the advances in sciences and technology there is still a lot that is not yet known
+            <p>Despite the advances in science and technology there is still a lot that is not yet known
                 or well understood and part of our mission is to advance the science of happiness and
                 share our insights with our community of users. Happiness has been directly linked to
                 health and longevity and vice versa. Helping you improve, no matter how much or little,
@@ -291,7 +242,7 @@ def sendmail(email, msg):
         raise me
 
 
-@app.task
+@celery.task(name='mail_tasks.send_welcome')
 @db_session
 def send_welcome(user_id: int):
 
@@ -312,9 +263,9 @@ def send_welcome(user_id: int):
     user.last_notification = datetime.utcnow()
 
 
-@app.task
+@celery.task(name='mail_tasks.send_reminder')
 @db_session
-def send_reminder(user_id: int, counts: Dict[str, Dict[str, int]]):
+def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]):
 
     user = User[user_id]
 
@@ -323,7 +274,7 @@ def send_reminder(user_id: int, counts: Dict[str, Dict[str, int]]):
     me = mailuser
     you = user.email
 
-    msg = build_reminder_mail(user.first_name, counts)
+    msg = build_reminder_mail(user.first_name, index_id, counts)
 
     # generic email headers
     msg['Subject'] = 'Vitality Index update'
@@ -334,7 +285,7 @@ def send_reminder(user_id: int, counts: Dict[str, Dict[str, int]]):
     user.last_notification = datetime.utcnow()
 
 
-@app.task
+@celery.task(name='mail_tasks.send_password_reset')
 def send_password_reset(email: str, url: str, token):
 
     # me == the sender's email address
@@ -350,3 +301,4 @@ def send_password_reset(email: str, url: str, token):
     msg['To'] = you
 
     sendmail(you, msg)
+    
