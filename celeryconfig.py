@@ -7,7 +7,3 @@ mailuser = os.getenv('MAILUSER')
 mailpwd = os.getenv('MAILPWD')
 
 celery = Celery('mail_server', broker=broker)
-
-
-
-
