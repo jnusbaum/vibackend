@@ -1,7 +1,34 @@
 """
 Primary app code. Listens to email and processes submissions
 """
+from flask import Flask
+app = Flask(__name__)
+# set up config
+app.config.from_pyfile('./config/viservice.cfg')
 import os
+from datetime import datetime
+# set up logger
+# app.logger.setLevel(app.config['LOGLEVEL'])
+logfile = app.config['LOGDIR'] + app.config['LOGNAME']
+# check for existence and rotate
+if os.path.isfile(logfile):
+    # rename with time
+    bname = app.config['LOGNAME'].split('.')[0]
+    nname = "%s.%s.log" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
+    os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
+else:
+    # create log directory if it does not exist
+    os.makedirs(app.config['LOGDIR'], 0o777, True)
+import logging
+# fh = logging.FileHandler(logfile)
+# fh.setLevel(app.config['LOGLEVEL'])
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# fh.setFormatter(formatter)
+# app.logger.addHandler(fh)
+
+# set up basic logging
+logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
+
 from typing import Tuple, Union
 # logging
 import logging
@@ -12,8 +39,7 @@ from datetime import timedelta
 from passlib.hash import argon2
 
 # Flask
-from flask import Flask, request
-from flask import jsonify
+from flask import jsonify, request
 from flask_jwt_extended import (
     JWTManager, jwt_required, create_access_token,
     jwt_refresh_token_required, create_refresh_token,
@@ -35,11 +61,6 @@ from vidb.models import *
 # email celery tasks
 from vimailserver import mail_tasks
 
-
-app = Flask(__name__)
-# set up config
-app.config.from_pyfile('./config/viservice.cfg')
-
 # configure from environment variables
 # these will come in secure form from azure app settings in azure deployment
 # database/pony
@@ -57,27 +78,6 @@ app.config['IDANGEROUSKEY'] = os.getenv('ITSDANGEROUSKEY')
 jwt = JWTManager(app)
 
 index_id = "Vitality Index"
-
-# set up logger
-# app.logger.setLevel(app.config['LOGLEVEL'])
-logfile = app.config['LOGDIR'] + app.config['LOGNAME']
-# check for existence and rotate
-if os.path.isfile(logfile):
-    # rename with time
-    bname = app.config['LOGNAME'].split('.')[0]
-    nname = "%s.%s.log" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
-    os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
-else:
-    # create log directory if it does not exist
-    os.makedirs(app.config['LOGDIR'], 0o777, True)
-# fh = logging.FileHandler(logfile)
-# fh.setLevel(app.config['LOGLEVEL'])
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# fh.setFormatter(formatter)
-# app.logger.addHandler(fh)
-
-# set up basic logging
-logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
 
 logging.info("connecting to database %s:%s:%s" % (app.config['DBHOST'], app.config['DATABASE'], app.config['DBUSER']))
 
