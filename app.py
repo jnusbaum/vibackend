@@ -7,11 +7,8 @@ from typing import Tuple, Union
 import logging
 # pretty printing/formatting
 import pprint
-# Import smtplib for sending the email
-import smtplib
 # date and time stuff
 from datetime import timedelta
-
 from passlib.hash import argon2
 
 # Flask
@@ -35,8 +32,8 @@ from views import *
 
 # data model
 from vidb.models import *
-# email celery server
-from vimailserver.mail_server import send_password_reset
+# email celery tasks
+from vimailserver import mail_tasks
 
 
 app = Flask(__name__)
@@ -168,12 +165,12 @@ def auth_user(email: str, pwd: str) -> User:
     user = User.get(email=email)
     if not user:
         # not authenticated
-        logging.error("failed to authenticate %s" % email)
+        logging.error("failed to authenticate %s", email)
         raise VI401Exception("Incorrect email or password")
     # verify password matches
     if not argon2.verify(pwd, user.pword):
         # not authenticated
-        logging.error("failed to authenticate %s" % email)
+        logging.error("failed to authenticate %s", email)
         raise VI401Exception("Incorrect email or password")
     return user
 
@@ -223,12 +220,17 @@ def reset_password_start():
     if not user:
         logging.error("email not found")
         raise VI404Exception("User not found.")
-    logging.debug("starting reset of password for %s" % (user.email, ))
+    logging.debug("starting reset of password for %s", user.email)
     # generate token
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
     # send email
-    send_password_reset.delay(email, url, token)
+    try:
+        mail_tasks.send_password_reset.delay(email, url, token)
+    except mail_tasks.send_password_reset.OperationalError as oe:
+        logging.error("error sending password reset email to %s", email)
+        raise VI500Exception("error sending password reset email")
+    logging.debug("reset email sent")
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
@@ -265,7 +267,7 @@ def reset_password_finish():
         # not authenticated
         logging.error("User not found")
         raise VI404Exception("User not found.")
-    logging.debug("finishing reset of password for %s" % (user.email, ))
+    logging.debug("finishing reset of password for %s", user.email)
     user.pword = argon2.hash(password)
     for token in user.tokens:
         token.revoked = True
@@ -282,7 +284,7 @@ def login():
     email = request.json.get('email', None)
     password = request.json.get('password', None)
     user = auth_user(email, password)
-    logging.debug("logging in %s" % (user.email, ))
+    logging.debug("logging in %s", user.email)
     user.last_login = datetime.utcnow()
     # Store the tokens in our store with a status of not currently revoked.
     access_token = create_access_token(identity={'id': user.id}, fresh=True)
@@ -306,7 +308,7 @@ def login():
 def refresh():
     logging.debug("in /refresh[POST]")
     user = check_user(('vivendor', 'viuser'))
-    logging.debug("refreshing %s" % (user.email, ))
+    logging.debug("refreshing %s", user.email)
     user.last_login = datetime.utcnow()
     new_token = create_access_token(identity={'id': user.id}, fresh=True)
     add_token_to_database(new_token, user)
@@ -321,7 +323,7 @@ def refresh():
 def logout():
     logging.debug("in /logout[DELETE]")
     user = check_user(('vivendor', 'viuser'))
-    logging.debug("logging out %s" % (user.email, ))
+    logging.debug("logging out %s", user.email)
     for token in user.tokens:
         token.revoked = True
     return jsonify(
@@ -811,14 +813,14 @@ def get_recommendations_for_result(component_name):
         components = result.result_components.select(lambda c: c.name == component_name)[:]
         if not components:
             # component name in URL not correct
-            logging.error("in recommendations - invalid category specified, %s" % component_name)
+            logging.error("in recommendations - invalid category specified, %s", component_name)
             raise VI404Exception("Invalid category specified, %s" % component_name)
         component = components[0]
 
         if component.maxforanswered / component.maxpoints < .5:
             # answer more questions
-            logging.debug("generating recommendation for %s, with score %f" % (component.name,
-                                                                               component.maxforanswered / component.maxpoints))
+            logging.debug("generating recommendation for %s, with score %f", component.name,
+                                                                               component.maxforanswered / component.maxpoints)
             recommendations.append({'type': 'Recommendation',
                                     'component': component.name,
                                     'text': 'One of the best ways to increase your Vitality Index score and make it more accurate is to answer more questions'})
@@ -830,7 +832,7 @@ def get_recommendations_for_result(component_name):
             lambda s: s.points / s.maxforanswered).limit(3)
         for sub in subs:
             logging.debug(
-                "generating recommendation for %s, with score %f" % (sub.name, sub.points / sub.maxforanswered))
+                "generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
             recommendations.append({'type': 'Recommendation',
                                     'component': component.name,
                                     'text': sub.index_sub_component.recommendation})

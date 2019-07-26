@@ -4,7 +4,8 @@ from typing import Dict
 import smtplib
 from vidb.models import *
 
-from celery_config import celery, mailuser, mailsvr, mailpwd
+from celeryconfig import celery, mailsvr, mailuser, mailpwd
+
 
 def build_reminder_mail(name: str, index_id: str, counts: Dict[str, Dict[str, int]]) -> EmailMessage:
     msg = EmailMessage()
@@ -301,4 +302,3 @@ def send_password_reset(email: str, url: str, token):
     msg['To'] = you
 
     sendmail(you, msg)
-    
