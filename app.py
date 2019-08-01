@@ -26,6 +26,7 @@ import logging
 # fh.setFormatter(formatter)
 # app.logger.addHandler(fh)
 
+app.config['LOGLEVEL'] = os.getenv('LOGLEVEL')
 # set up basic logging
 logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -140,24 +141,38 @@ class VI500Exception(VIServiceException):
         super().__init__(message, 500)
 
 
+@app.errorhandler(VI401Exception)
+def handle_exception(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    response.headers = {'WWW-Authenticate': 'Bearer realm="access to VI backend"'}
+    return response
+
+
 @app.errorhandler(VIServiceException)
 def handle_exception(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
-    if error.status_code == 401:
-        response.headers = {'WWW-Authenticate': 'Bearer realm="access to VI backend"'}
     return response
 
 
+@app.before_request
+def before_request():
+    # log actual full url of each call
+    # saves having to correlate with uwsgi server logs
+    logging.info("handling request to %s", request.url)
+
+
 def auth_user(email: str, pwd: str) -> User:
+    logging.info('auth_user: authenticating user %s', email)
     # authenticate user
     if not email:
         # not authenticated
-        logging.error("incorrect input")
+        logging.warning("auth_user: incorrect input - no email")
         raise VI401Exception("Please provide email.")
     if not pwd:
         # not authenticated
-        logging.error("failed to authenticate")
+        logging.warning("auth_user: failed to authenticate")
         raise VI401Exception("Please provide password.")
 
     # lookup in db and authenticate
@@ -165,12 +180,12 @@ def auth_user(email: str, pwd: str) -> User:
     user = User.get(email=email)
     if not user:
         # not authenticated
-        logging.error("failed to authenticate %s", email)
+        logging.warning("auth_user: failed to authenticate %s", email)
         raise VI401Exception("Incorrect email or password")
     # verify password matches
     if not argon2.verify(pwd, user.pword):
         # not authenticated
-        logging.error("failed to authenticate %s", email)
+        logging.warning("auth_user: failed to authenticate %s", email)
         raise VI401Exception("Incorrect email or password")
     return user
 
@@ -178,17 +193,18 @@ def auth_user(email: str, pwd: str) -> User:
 def check_user(role_set: Tuple[str, ...]) -> User:
     identity = get_jwt_identity()
     user_id = identity['id']
+    logging.info('check_user: checking user %s', user_id)
     user = None
     try:
         user = User[user_id]
     except ObjectNotFound:
         # not authenticated
-        logging.error("failed to authenticate user")
+        logging.error("check_user: failed to authenticate user id does not exist - %s", user_id)
         raise VI401Exception("Failed to authenticate user.")
 
     if user.role not in role_set:
         # no permission
-        logging.error("insufficient privilege")
+        logging.warning("in check_user: insufficient privilege for user %s", user.email)
         raise VI403Exception("User does not have permission.")
 
     return user
@@ -204,23 +220,23 @@ def check_if_token_revoked(decoded_token):
 @app.route('/reset-password-start', methods=['POST'])
 @db_session
 def reset_password_start():
-    logging.debug("in /reset-password-start[POST]")
+    logging.info("in /reset-password-start[POST]")
     email = request.json.get('email', None)
     if not email:
         # not authenticated
-        logging.error("incorrect input")
+        logging.error("reset_password: incorrect input - no email")
         raise VI400Exception("Please provide email.")
     url = request.json.get('url', None)
     if not url:
         # not authenticated
-        logging.error("incorrect input")
+        logging.error("reset_password: incorrect input - no url")
         raise VI400Exception("Please provide url.")
     # lookup email in user db
     user = User.get(email=email)
     if not user:
-        logging.error("email not found")
+        logging.error("reset_password: email %s not found", email)
         raise VI404Exception("User not found.")
-    logging.debug("starting reset of password for %s", user.email)
+    logging.info("reset_password: starting reset of password for %s", user.email)
     # generate token
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
@@ -228,9 +244,9 @@ def reset_password_start():
     try:
         mail_tasks.send_password_reset.delay(email, url, token)
     except mail_tasks.send_password_reset.OperationalError as oe:
-        logging.error("error sending password reset email to %s", email)
+        logging.error("reset_password: error sending password reset email to %s", email)
         raise VI500Exception("error sending password reset email")
-    logging.debug("reset email sent")
+    logging.info("reset_password: reset email sent")
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
@@ -238,16 +254,16 @@ def reset_password_start():
 @app.route('/reset-password-finish', methods=['POST'])
 @db_session
 def reset_password_finish():
-    logging.debug("in /reset-password-finish[POST]")
+    logging.info("in /reset-password-finish[POST]")
     token = request.json.get('token', None)
     if not token:
         # not authenticated
-        logging.error("incorrect input")
+        logging.error("reset password: incorrect input - no token")
         raise VI400Exception("Please provide token.")
     password = request.json.get('password', None)
     if not password:
         # not authenticated
-        logging.error("incorrect input")
+        logging.error("reset password: incorrect input - no password")
         raise VI400Exception("Please provide password.")
     # decode token
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
@@ -255,19 +271,19 @@ def reset_password_finish():
     try:
         user_id = s.loads(token, max_age=1800)
     except SignatureExpired:
-        logging.error("token expired")
+        logging.error("reset password: token expired")
         raise VI401Exception("Token expired.")
     except BadSignature:
-        logging.error("token invalid")
+        logging.error("reset password: token invalid")
         raise VI400Exception("Token invalid.")
     # if not expired
     try:
         user = User[user_id]
     except ObjectNotFound:
         # not authenticated
-        logging.error("User not found")
+        logging.error("reset password: User not found")
         raise VI404Exception("User not found.")
-    logging.debug("finishing reset of password for %s", user.email)
+    logging.info("finishing reset of password for %s", user.email)
     user.pword = argon2.hash(password)
     for token in user.tokens:
         token.revoked = True
@@ -280,11 +296,11 @@ def reset_password_finish():
 @app.route('/login', methods=['POST'])
 @db_session
 def login():
-    logging.debug("in /login[POST]")
+    logging.info("in /login[POST]")
     email = request.json.get('email', None)
     password = request.json.get('password', None)
     user = auth_user(email, password)
-    logging.debug("logging in %s", user.email)
+    logging.info("login: logging in %s", user.email)
     user.last_login = datetime.utcnow()
     # Store the tokens in our store with a status of not currently revoked.
     access_token = create_access_token(identity={'id': user.id}, fresh=True)
@@ -306,9 +322,9 @@ def login():
 @db_session
 @jwt_refresh_token_required
 def refresh():
-    logging.debug("in /refresh[POST]")
+    logging.info("in /refresh[POST]")
     user = check_user(('vivendor', 'viuser'))
-    logging.debug("refreshing %s", user.email)
+    logging.info("refresh: refreshing %s", user.email)
     user.last_login = datetime.utcnow()
     new_token = create_access_token(identity={'id': user.id}, fresh=True)
     add_token_to_database(new_token, user)
@@ -321,9 +337,9 @@ def refresh():
 @db_session
 @jwt_required
 def logout():
-    logging.debug("in /logout[DELETE]")
+    logging.info("in /logout[DELETE]")
     user = check_user(('vivendor', 'viuser'))
-    logging.debug("logging out %s", user.email)
+    logging.info("logout: logging out %s", user.email)
     for token in user.tokens:
         token.revoked = True
     return jsonify(
@@ -342,48 +358,48 @@ def logout():
 @db_session
 @jwt_required
 def new_user():
-    logging.debug("in /users[POST]")
-    check_user(('vivendor',))
+    user = check_user(('vivendor',))
+    logging.info("in /users[POST]")
 
     credentials = None
     if request.is_json:
         credentials = request.get_json()
     if not credentials:
         # no parameters
-        logging.error("no input supplied")
+        logging.error("new_user: no input supplied")
         raise VI400Exception("No input supplied.")
 
     try:
         email = credentials['email']
     except KeyError:
-        logging.error("Email must be provided")
+        logging.error("new_user: email must be provided")
         raise VI400Exception("Email must be provided.")
     try:
         postal_code = credentials['postalcode']
     except KeyError:
-        logging.error("postal code must be provided")
+        logging.error("new_user: postal code must be provided")
         raise VI400Exception("Postal code must be provided.")
     try:
         gender = credentials['gender']
     except KeyError:
-        logging.error("gender must be provided")
+        logging.error("new_user: gender must be provided")
         raise VI400Exception("Gender must be provided.")
     try:
         first_name = credentials['firstname']
     except KeyError:
-        logging.error("first name must be provided")
+        logging.error("new_user: first name must be provided")
         raise VI400Exception("First name must be provided.")
     try:
         password = credentials['password']
     except KeyError:
-        logging.error("password must be provided")
+        logging.error("new_user: password must be provided")
         raise VI400Exception("Password must be provided.")
     bdate = None
     try:
         birthdate = credentials['birthdate']
         bdate = datetime.strptime(birthdate, "%Y-%m-%d").date()
     except KeyError:
-        logging.error("birth date must be provided")
+        logging.error("new_user: birth date must be provided")
         raise VI400Exception("Birth date must be provided.")
 
     nrole = 'viuser'  # can only create viuser through this interface
@@ -396,7 +412,7 @@ def new_user():
         flush()
     except (IntegrityError, TransactionIntegrityError):
         # already exists
-        logging.error("user name exists")
+        logging.error("new_user: user name exists %s", email)
         raise VI400Exception("User with specified email already exists.")
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
 
@@ -410,7 +426,7 @@ def new_user():
 @db_session
 @jwt_required
 def get_user():
-    logging.debug("in /users[GET]")
+    logging.info("in /users[GET]")
     user = check_user(('viuser',))
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
     return jsonify(ret_results)
@@ -421,7 +437,7 @@ def get_user():
 @db_session
 @jwt_required
 def modify_user():
-    logging.debug("in /users[PATCH]")
+    logging.info("in /users[PATCH]")
     user = check_user(('viuser',))
     # can only change email
     credentials = None
@@ -480,7 +496,7 @@ def modify_user():
 @db_session
 @jwt_required
 def delete_user():
-    logging.debug("in /users[DELETE]")
+    logging.info("in /users[DELETE]")
     user = check_user(('viuser',))
     # logout first
     for token in user.tokens:
@@ -500,7 +516,7 @@ def delete_user():
 @db_session
 @jwt_required
 def answers_for_user():
-    logging.debug("in /users/answers[GET]")
+    logging.info("in /users/answers[GET]")
 
     # authenticate user
     user = check_user(('viuser',))
@@ -548,7 +564,7 @@ def answers_for_user():
 @db_session
 @jwt_required
 def add_answers_for_user():
-    logging.debug("in /users/answers[POST]")
+    logging.info("in /users/answers[POST]")
     # truncate to second precision
     trecv = datetime.utcnow().replace(microsecond=0)
 
@@ -613,7 +629,7 @@ def add_answers_for_user():
 @db_session
 @jwt_required
 def answer_counts_for_user():
-    logging.debug("in /users/answers/counts[GET]")
+    logging.info("in /users/answers/counts[GET]")
 
     # authenticate user
     user = check_user(('viuser',))
@@ -649,7 +665,7 @@ def answer_counts_for_user():
 @db_session
 @jwt_required
 def results_for_user():
-    logging.debug("in /users/results[GET]")
+    logging.info("in /users/results[GET]")
     trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
@@ -678,7 +694,7 @@ def results_for_user():
 @db_session
 @jwt_required
 def create_index_for_user():
-    logging.debug("in /users/results[POST]")
+    logging.info("in /users/results[POST]")
     trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
@@ -725,26 +741,26 @@ def create_index_for_user():
 
     bdate = user.birth_date
     # calculate score
-    logging.info('creating index for %s', user.email)
+    logging.info('create_index_for_user: creating index for %s', user.email)
     # add birthdate to answers
     ret_answers['BirthDate'] = bdate.strftime("%Y-%m-%d")
     ret_answers['Gender'] = user.gender
     score = VICalculator.vi_points(ret_answers)
 
     # create the result linked to index
-    logging.debug("creating Result")
+    logging.info("create_index_for_user: creating Result for %s", user.email)
 
     res = Result(time_generated=aod, user=user, points=score['INDEX'],
                  maxforanswered=score['MAXFORANSWERED'], index=idx)
 
     # link answer objects to result
-    logging.debug("Updating Answers - linking to Result")
+    logging.info("create_index_for_user: Updating Answers - linking to Result for %s", user.email)
     for answer in answers.values():
         if answer:
             res.answers.add(answer)
 
     # create and link index components
-    logging.debug("Saving Result Components")
+    logging.info("create_index_for_user: Saving Result Components for %s", user.email)
     for icname, icscore in score['COMPONENTS'].items():
         idxcomp = idx.index_components.filter(lambda i: i.name == icname).get()
         ic = ResultComponent(points=icscore['POINTS'],
@@ -769,7 +785,7 @@ def create_index_for_user():
 @db_session
 @jwt_required
 def get_recommendations_for_result(component_name):
-    logging.debug("in /users/recommendations/<component_name>[GET]")
+    logging.info("in /users/recommendations/%s[GET]", component_name)
     # authenticate user
     user = check_user(('viuser',))
 
@@ -819,7 +835,7 @@ def get_recommendations_for_result(component_name):
 
         if component.maxforanswered / component.maxpoints < .5:
             # answer more questions
-            logging.debug("generating recommendation for %s, with score %f", component.name,
+            logging.info("get_recommendations: generating recommendation for %s, with score %f", component.name,
                                                                                component.maxforanswered / component.maxpoints)
             recommendations.append({'type': 'Recommendation',
                                     'component': component.name,
@@ -831,8 +847,8 @@ def get_recommendations_for_result(component_name):
         subs = component.result_sub_components.filter(lambda s: s.maxforanswered > 0).filter(lambda s: s.points / s.maxforanswered < .75).order_by(
             lambda s: s.points / s.maxforanswered).limit(3)
         for sub in subs:
-            logging.debug(
-                "generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
+            logging.info(
+                "get_recommendations: generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
             recommendations.append({'type': 'Recommendation',
                                     'component': component.name,
                                     'text': sub.index_sub_component.recommendation})
@@ -849,7 +865,7 @@ def get_recommendations_for_result(component_name):
 @db_session
 @jwt_required
 def get_answer(answer_id):
-    logging.debug("in /answers/<answer_id>[GET]")
+    logging.info("in /answers/<answer_id>[GET]")
     user = check_user(('viuser',))
     answer = None
     try:
@@ -871,7 +887,7 @@ def get_answer(answer_id):
 @db_session
 @jwt_required
 def get_answer_results(answer_id):
-    logging.debug("in /answers/<answer_id>/results[GET]")
+    logging.info("in /answers/<answer_id>/results[GET]")
     user = check_user(('viuser',))
     answer = None
     try:
@@ -898,7 +914,7 @@ def get_answer_results(answer_id):
 @db_session
 @jwt_required
 def get_result(result_id):
-    logging.debug("in /results/<result_id>[GET]")
+    logging.info("in /results/<result_id>[GET]")
     user = check_user(('viuser',))
 
     result = None
@@ -920,7 +936,7 @@ def get_result(result_id):
 @db_session
 @jwt_required
 def get_result_component(result_id, component_id):
-    logging.debug("in /results/<result_id>/components/<component_id>[GET]")
+    logging.info("in /results/%s/components/%s[GET]", result_id, component_id)
     # authenticate user
     user = check_user(('viuser',))
     result = None
@@ -949,7 +965,7 @@ def get_result_component(result_id, component_id):
 @db_session
 @jwt_required
 def get_result_answers(result_id):
-    logging.debug("in /results/<result_id>/answers[GET]")
+    logging.info("in /results/%s/answers[GET]", result_id)
     user = check_user(('viuser',))
 
     result = None
@@ -978,7 +994,7 @@ def get_result_answers(result_id):
 @db_session
 @jwt_required
 def get_statistics():
-    logging.debug("in /statistics[GET]")
+    logging.info("in /statistics[GET]")
     trecv = datetime.utcnow()
     # authenticate user
     check_user(('viuser',))
