@@ -804,6 +804,7 @@ def get_recommendations_for_result(component_name):
     results = results.filter(lambda r: r.index == idx)
 
     if results:
+        logging.info("get_recommendations: found results for %s", user.email)
         # this parameter can be a datetime string or not provided
         # pretty much required for useful answers unless question is specified
         aod = request.args.get('as-of-time', type=str_to_datetime)
@@ -811,6 +812,7 @@ def get_recommendations_for_result(component_name):
             # use current time
             aod = datetime.utcnow().replace(microsecond=0)
         if aod:
+            logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
             results = results.filter(
                 lambda r: r.time_generated <= aod).order_by(
                 lambda r: desc(r.time_generated)).limit(1)
@@ -833,7 +835,9 @@ def get_recommendations_for_result(component_name):
             raise VI404Exception("Invalid category specified, %s" % component_name)
         component = components[0]
 
-        if component.maxforanswered / component.maxpoints < .5:
+        aratio = component.maxforanswered / component.maxpoints
+        logging.info("get_recommendations: found component %s with aratio %f for %s", component.name, aratio, user.email)
+        if aratio < .5:
             # answer more questions
             logging.info("get_recommendations: generating recommendation for %s, with score %f", component.name,
                                                                                component.maxforanswered / component.maxpoints)
