@@ -844,8 +844,7 @@ def get_recommendations_for_result(component_name):
         # look at the subcomponents
         # order them by % of maxforanswered points ascending
         # grab worst 3
-        subs = component.result_sub_components.filter(lambda s: s.maxforanswered > 0).filter(lambda s: s.points / s.maxforanswered < .75).order_by(
-            lambda s: s.points / s.maxforanswered).limit(3)
+        subs = component.result_sub_components.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: s.points / s.maxforanswered).limit(3)
         for sub in subs:
             logging.info(
                 "get_recommendations: generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
