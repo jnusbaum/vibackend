@@ -16,5 +16,14 @@ db.bind(provider='postgres', host=dbhost,
 db.generate_mapping()
 
 with db_session:
-    u = User.get(email='contact@vitalityindex.com')
+    u = User.get(email='brandong@thoughtlab.com')
+    u.delete()
+
+    u = User.get(email='jnusbaum@cybermesa.com')
+    u.delete()
+
+    u = User.get(email='joec@thoughtlab.com')
+    u.delete()
+
+    u = User.get(email='aliz@thoughtlab.com')
     u.delete()
