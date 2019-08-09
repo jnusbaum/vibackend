@@ -683,7 +683,7 @@ def results_for_user():
     aod = request.args.get('as-of-time', type=str_to_datetime, default=trecv)
     numpts = request.args.get('numpts', type=int, default=1)
     results = results.filter(lambda r: r.index == idx and r.time_generated <= aod).order_by(
-        lambda r: desc(r.time_generated)).limit(numpts)
+        lambda r: desc(r.time_generated))[:numpts]
     ret_results = [ResultView.render(r) for r in results]
     rresults = {'count': len(ret_results), 'data': ret_results}
     return jsonify(rresults)
@@ -728,7 +728,7 @@ def create_index_for_user():
         # get the latest answer for this question and user
         lanswers = question.answers.filter(
             lambda a: a.user == user and a.time_received <= aod).order_by(
-            lambda a: desc(a.time_received)).limit(1)
+            lambda a: desc(a.time_received))[:1]
         if lanswers:
             found_at_least_one = True
             answers[question.name] = lanswers[0]
@@ -815,8 +815,8 @@ def get_recommendations_for_result(component_name):
             logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
             results = results.filter(
                 lambda r: r.time_generated <= aod).order_by(
-                lambda r: desc(r.time_generated)).limit(1)
-        result = results[:][0]
+                lambda r: desc(r.time_generated))[:1]
+        result = results[0]
         if not result:
             # user has no results
             logging.error("User has no results meeting the criteria.")
@@ -848,7 +848,9 @@ def get_recommendations_for_result(component_name):
         # look at the subcomponents
         # order them by % of maxforanswered points ascending
         # grab worst 3
-        subs = component.result_sub_components.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: s.points / s.maxforanswered).limit(3)
+        subs = component.result_sub_components
+        logging.info("get_recommendations: found %d sub components for %s", subs.count(), user.email)
+        subs = subs.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: s.points / s.maxforanswered)[:3]
         for sub in subs:
             logging.info(
                 "get_recommendations: generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
