@@ -811,11 +811,10 @@ def get_recommendations_for_result(component_name):
         if not aod:
             # use current time
             aod = datetime.utcnow().replace(microsecond=0)
-        if aod:
-            logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
-            results = results.filter(
-                lambda r: r.time_generated <= aod).order_by(
-                lambda r: desc(r.time_generated))[:1]
+        logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
+        results = results.filter(
+            lambda r: r.time_generated <= aod).order_by(
+            lambda r: desc(r.time_generated))[:1]
         result = results[0]
         if not result:
             # user has no results
@@ -850,18 +849,13 @@ def get_recommendations_for_result(component_name):
         # grab worst 3
         subs = component.result_sub_components
         logging.info("get_recommendations: found %d sub components for %s", subs.count(), user.email)
-        subs = subs.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: s.points/s.maxforanswered)
-        count = 0
+        subs = subs.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: float(s.points) / float(s.maxforanswered))[:3]
         for sub in subs:
-            score = sub.points/sub.maxforanswered
             logging.info(
-                "get_recommendations: sub %s, score %f", sub.name, score)
-            if count < 3:
-                logging.info(
-                    "get_recommendations: sending recommendation for %s, with score %f to front end", sub.name, score)
-                recommendations.append({'type': 'Recommendation',
-                                        'component': component.name,
-                                        'text': sub.index_sub_component.recommendation})
+                "get_recommendations: generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
+            recommendations.append({'type': 'Recommendation',
+                                    'component': component.name,
+                                    'text': sub.index_sub_component.recommendation})
 
     return jsonify({'count': len(recommendations), 'data': recommendations})
 
