@@ -850,13 +850,18 @@ def get_recommendations_for_result(component_name):
         # grab worst 3
         subs = component.result_sub_components
         logging.info("get_recommendations: found %d sub components for %s", subs.count(), user.email)
-        subs = subs.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: s.points / s.maxforanswered)[:3]
+        subs = subs.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: s.points/s.maxforanswered)
+        count = 0
         for sub in subs:
+            score = sub.points/sub.maxforanswered
             logging.info(
-                "get_recommendations: generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
-            recommendations.append({'type': 'Recommendation',
-                                    'component': component.name,
-                                    'text': sub.index_sub_component.recommendation})
+                "get_recommendations: sub %s, score %f", sub.name, score)
+            if count < 3:
+                logging.info(
+                    "get_recommendations: sending recommendation for %s, with score %f to front end", sub.name, score)
+                recommendations.append({'type': 'Recommendation',
+                                        'component': component.name,
+                                        'text': sub.index_sub_component.recommendation})
 
     return jsonify({'count': len(recommendations), 'data': recommendations})
 
