@@ -3,7 +3,7 @@ from flask_jwt_extended import decode_token
 from datetime import datetime, timezone
 
 
-def _epoch_utc_to_datetime(epoch_utc):
+def _epoch_utc_to_datetime(epoch_utc) -> datetime:
     """
     Helper function for converting epoch timestamps (as stored in JWTs) into
     python datetime objects (which are easier to use with sqlalchemy).
@@ -29,7 +29,7 @@ def add_token_to_database(encoded_token, user: User) -> None:
           )
 
 
-def is_token_revoked(decoded_token):
+def is_token_revoked(decoded_token) -> bool:
     """
     Checks if the given token is revoked or not. Because we are adding all the
     tokens that we create into this database, if the token is not present
