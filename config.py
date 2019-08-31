@@ -9,14 +9,16 @@ class Config(object):
     JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']
     WWWHOST = 'localhost'
     WWWPORT = 5000
-    # configure from environment variables
-    # these will come in secure form from azure app settings in azure deployment
-    # database/pony
-    DBHOST = os.environ.get('DBHOST') or 'localhost'
-    DATABASE = os.environ.get('DATABASE') or 'vi'
+    DBHOST = os.environ.get('DBHOST') or '192.168.0.134'
+    DATABASE = os.environ.get('DATABASE') or 'vibackend'
     DBUSER = os.environ.get('DBUSER') or 'vi'
     DBPWD = os.environ.get('DBPWD')
-    DBSSLMODE = os.environ.get('DBSSLMODE') or 'require'
+    SQLALCHEMY_DATABASE_URI = 'mssql+pymssql://{user}:{password}@{host}/{db}?charset=utf8'.format(user=DBUSER,
+                                                                                                  password=DBPWD,
+                                                                                                  host=DBHOST,
+                                                                                                  db=DATABASE)
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
     # itsdangerous, jwt
     JWT_SECRET_KEY = os.environ.get('JWTKEY')
     IDANGEROUSKEY = os.environ.get('ITSDANGEROUSKEY')
