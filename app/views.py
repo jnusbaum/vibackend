@@ -1,3 +1,4 @@
+from vidb.models import *
 
 
 class UserView:

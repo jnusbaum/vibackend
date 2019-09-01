@@ -1,56 +1,18 @@
 import logging
-import datetime
+from datetime import datetime
+from passlib.hash import argon2
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask import request, jsonify
 from flask_jwt_extended import (
     jwt_required, create_access_token,
-    jwt_refresh_token_required, create_refresh_token,
-    decode_token
+    jwt_refresh_token_required, create_refresh_token
 )
 from app.auth import bp
 from app.errors.handlers import VI400Exception, VI401Exception, VI500Exception, VI404Exception
-from app.auth.auth import auth_user, check_user
-
-
-def _epoch_utc_to_datetime(epoch_utc) -> datetime:
-    """
-    Helper function for converting epoch timestamps (as stored in JWTs) into
-    python datetime objects (which are easier to use with sqlalchemy).
-    """
-    return datetime.datetime.fromtimestamp(epoch_utc, tz=datetime.timezone.utc)
-
-
-def add_token_to_database(encoded_token, user: User) -> None:
-    """
-    Adds a new token to the database. It is not revoked when it is added.
-    """
-    decoded_token = decode_token(encoded_token)
-    jti = decoded_token['jti']
-    token_type = decoded_token['type']
-    expires = _epoch_utc_to_datetime(decoded_token['exp'])
-    revoked = False
-
-    Token(jti=jti,
-          token_type=token_type,
-          user=user,
-          expires=expires,
-          revoked=revoked
-          )
-
-
-def is_token_revoked(decoded_token) -> bool:
-    """
-    Checks if the given token is revoked or not. Because we are adding all the
-    tokens that we create into this database, if the token is not present
-    in the database we are going to consider it revoked, as we don't know where
-    it was created.
-    """
-    jti = decoded_token['jti']
-    token = Token.get(jti=jti)
-    if token:
-        return token.revoked
-    else:
-        return True
+from app.auth.auth import auth_user, check_user, add_token_to_database
+from app import db
+from vidb.models import User
+from vimailserver import mail_tasks
 
 
 # password recovery
@@ -68,7 +30,7 @@ def reset_password_start():
         logging.error("reset_password: incorrect input - no url")
         raise VI400Exception("Please provide url.")
     # lookup email in user db
-    user = User.get(email=email)
+    user = User.query.filter_by(email=email).one_or_none()
     if not user:
         logging.error("reset_password: email %s not found", email)
         raise VI404Exception("User not found.")
@@ -112,9 +74,8 @@ def reset_password_finish():
         logging.error("reset password: token invalid")
         raise VI400Exception("Token invalid.")
     # if not expired
-    try:
-        user = User[user_id]
-    except ObjectNotFound:
+    user = User.query.get(user_id)
+    if not user:
         # not authenticated
         logging.error("reset password: User not found")
         raise VI404Exception("User not found.")
@@ -122,6 +83,8 @@ def reset_password_finish():
     user.pword = argon2.hash(password)
     for token in user.tokens:
         token.revoked = True
+        db.session.add(token)
+    db.session.commit()
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully updated password for {}".format(user.email)}]})
 

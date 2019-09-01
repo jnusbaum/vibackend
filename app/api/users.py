@@ -7,12 +7,13 @@ from passlib.hash import argon2
 from typing import Union
 
 from app import db
-from app.models import User, Question, Answer, Index, Result, ResultComponent, ResultSubComponent
+from vidb.models import User, Question, Answer, Index, Result, ResultComponent, ResultSubComponent
 from app.views import UserView, AnswerView, ResultView
 from app.api import bp
 from app.errors.handlers import VI400Exception, VI404Exception
 from app.auth.auth import check_user
 
+from sqlalchemy.exc import IntegrityError
 
 def str_to_datetime(ans: str) -> Union[datetime, None]:
     if ans:
@@ -79,8 +80,9 @@ def new_user():
         user = User(email=email, pword=xhash, birth_date=bdate,
                     postal_code=postal_code, gender=gender, first_name=first_name, role=nrole)
         # flush to get id
-        flush()
-    except (IntegrityError, TransactionIntegrityError):
+        db.session.add(user)
+        db.session.commit()
+    except IntegrityError:
         # already exists
         logging.error("new_user: user name exists %s", email)
         raise VI400Exception("User with specified email already exists.")
@@ -132,7 +134,7 @@ def modify_user():
         email = credentials['email']
         if email != user.email:
             # email (primary key) is changing
-            if User.exists(email=email):
+            if User.query.filter_by(email=email).exists():
                 # user with this email already exists
                 logging.error("user name exists")
                 raise VI400Exception("User with specified email already exists.")
@@ -153,7 +155,8 @@ def modify_user():
     except KeyError:
         pass
 
-    flush()
+    db.session.add(user)
+    db.session.commit()
 
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
     return jsonify(ret_results)
@@ -193,18 +196,14 @@ def answers_for_user():
     # if not provided answers for all questions (possibly qualified by index) are returned
     question_id = request.args.get('question')
     if question_id:
-        question = None
-        try:
-            question = Question[question_id]
-        except ObjectNotFound:
+        question = Question.query.get(question_id)
+        if not question:
             raise VI404Exception("No Question with the specified id was found.")
         answers = answers.filter(lambda a: a.question == question)
 
-    idx = None
-    try:
-        # get index
-        idx = Index[bp.config['INDEX']]
-    except ObjectNotFound:
+    # get index
+    idx = Index.query.get(bp.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
     answers = answers.filter(lambda a: idx in a.indexes)
 
@@ -253,11 +252,9 @@ def add_answers_for_user():
         logging.error("no answers supplied")
         raise VI400Exception("No answers supplied.")
 
-    idx = None
-    try:
-        # get index
-        idx = Index[bp.config['INDEX']]
-    except ObjectNotFound:
+    # get index
+    idx = Index.query.get(bp.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
     # load the components
@@ -269,10 +266,8 @@ def add_answers_for_user():
         # empty answers are not saved
         # all answers are strings so this tests for empty string or None
         if answers[question_name]:
-            question = None
-            try:
-                question = Question[question_name]
-            except ObjectNotFound:
+            question = Question.query.get(question_name)
+            if not question:
                 # warning - answer for question that does not exist
                 raise VI404Exception("No Question with the specified id was found.")
             # load related sub components
@@ -280,10 +275,11 @@ def add_answers_for_user():
 
             # create Answer
             answer = Answer(question=question, time_received=trecv, answer=answers[question_name], user=user)
+            db.session.add(answer)
             ret_answers.append(answer)
 
     # flush to get ids assigned before rendering
-    flush()
+    db.session.commit()
 
     ranswers = {'count': len(ret_answers), 'data': [AnswerView.render(a) for a in ret_answers]}
     return jsonify(ranswers), 201
@@ -300,11 +296,9 @@ def answer_counts_for_user():
 
     answers = user.answers
 
-    idx = None
-    try:
-        # get index
-        idx = Index[bp.config['INDEX']]
-    except ObjectNotFound:
+    # get index
+    idx = Index.query.get(bp.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
     answers = answers.filter(lambda a: idx in a.indexes)
 
@@ -335,11 +329,9 @@ def results_for_user():
     user = check_user(('viuser',))
     results = user.results
 
-    idx = None
-    try:
-        # get index
-        idx = Index[bp.config['INDEX']]
-    except ObjectNotFound:
+    # get index
+    idx = Index.query.get(bp.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
     # this parameter can be a datetime string or not provided
@@ -373,11 +365,8 @@ def create_index_for_user():
     else:
         aod = str_to_datetime(data['as-of-time'])
 
-    idx = None
-    try:
-        # get index
-        idx = Index[bp.config['INDEX']]
-    except ObjectNotFound:
+    idx = Index.query.get(bp.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
     questions = idx.questions
@@ -433,8 +422,9 @@ def create_index_for_user():
                                maxforanswered=scscore['MAXFORANSWERED'], result_component=ic,
                                index_sub_component=idxsubcomp)
 
-    # flush to get ids assigned before rendering
-    flush()
+    db.session.add(res)
+    db.session.commit()
+
     rresults = {'count': 1, 'data': [ResultView.render(res)]}
     return jsonify(rresults), 201
 
@@ -456,11 +446,8 @@ def get_recommendations_for_result(component_name):
     result = None
     results = user.results
 
-    idx = None
-    try:
-        # get index
-        idx = Index[bp.config['INDEX']]
-    except ObjectNotFound:
+    idx = Index.query.get(bp.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
     results = results.filter(lambda r: r.index == idx)
 
