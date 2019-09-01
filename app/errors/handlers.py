@@ -47,11 +47,11 @@ class VI500Exception(VIServiceException):
 
 @bp.errorhandler(VI401Exception)
 def handle_exception_401(error):
-    return api_error_response(error.status_code, error.message, {'WWW-Authenticate': 'Bearer realm="access to VI backend"'})
+    return api_error_response(error, {'WWW-Authenticate': 'Bearer realm="access to VI backend"'})
 
 
 @bp.errorhandler(VIServiceException)
 def handle_exception(error):
     db.session.rollback()
-    return api_error_response(error.status_code, error.message)
+    return api_error_response(error)
 

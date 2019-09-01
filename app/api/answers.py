@@ -1,12 +1,12 @@
 import logging
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from app import db
 from app.models import Answer
 from app.views import ResultView, AnswerView
 from app.api import bp
 from app.errors.handlers import VI404Exception, VI403Exception
 from app.auth.auth import check_user
+
 
 # get answer
 @bp.route('/answers/<int:answer_id>', methods=['GET'])
@@ -14,10 +14,8 @@ from app.auth.auth import check_user
 def get_answer(answer_id):
     logging.info("in /answers/<answer_id>[GET]")
     user = check_user(('viuser',))
-    answer = None
-    try:
-        answer = Answer[answer_id]
-    except ObjectNotFound:
+    answer = Answer.query.get(answer_id)
+    if not answer:
         # no answer with this id
         raise VI404Exception("No Answer with specified id.")
 
@@ -35,10 +33,8 @@ def get_answer(answer_id):
 def get_answer_results(answer_id):
     logging.info("in /answers/<answer_id>/results[GET]")
     user = check_user(('viuser',))
-    answer = None
-    try:
-        answer = Answer[answer_id]
-    except ObjectNotFound:
+    answer = Answer.query.get(answer_id)
+    if not answer:
         # no answer with this id
         raise VI404Exception("No Answer with specified id.")
 

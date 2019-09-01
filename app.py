@@ -20,19 +20,12 @@ else:
     # create log directory if it does not exist
     os.makedirs(app.config['LOGDIR'], 0o777, True)
 import logging
-# fh = logging.FileHandler(logfile)
-# fh.setLevel(app.config['LOGLEVEL'])
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# fh.setFormatter(formatter)
-# app.logger.addHandler(fh)
 
 app.config['LOGLEVEL'] = os.getenv('LOGLEVEL')
 # set up basic logging
 logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
 
 from typing import Tuple, Union
-# logging
-import logging
 # pretty printing/formatting
 import pprint
 # date and time stuff

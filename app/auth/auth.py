@@ -1,7 +1,9 @@
 import logging
+from passlib.hash import argon2
+from typing import Tuple
 from flask_jwt_extended import get_jwt_identity
 from app.errors.handlers import VI401Exception, VI403Exception
-
+from app.models import User
 
 def auth_user(email: str, pwd: str) -> User:
     logging.info('auth_user: authenticating user %s', email)
@@ -17,7 +19,7 @@ def auth_user(email: str, pwd: str) -> User:
 
     # lookup in db and authenticate
     # lookup User with email
-    user = User.get(email=email)
+    user = User.query.filter_by(email=email)
     if not user:
         # not authenticated
         logging.warning("auth_user: failed to authenticate %s", email)
@@ -34,10 +36,8 @@ def check_user(role_set: Tuple[str, ...]) -> User:
     identity = get_jwt_identity()
     user_id = identity['id']
     logging.info('check_user: checking user %s', user_id)
-    user = None
-    try:
-        user = User[user_id]
-    except ObjectNotFound:
+    user = User.query.get(user_id)
+    if not user:
         # not authenticated
         logging.error("check_user: failed to authenticate user id does not exist - %s", user_id)
         raise VI401Exception("Failed to authenticate user.")
