@@ -8,7 +8,7 @@ from typing import Union
 
 from app import db
 from vidb.models import User, Question, Answer, Index, Result, ResultComponent, ResultSubComponent
-from app.views import UserView, AnswerView, ResultView
+from app.api.views import UserView, AnswerView, ResultView
 from app.api import bp
 from app.api.errors import VI400Exception, VI404Exception
 from app.auth.auth import check_user

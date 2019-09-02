@@ -3,7 +3,8 @@ import datetime
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 from vidb.models import User, Result, ResultComponent
-from app.views import ResultView, ResultComponentView, AnswerView
+from app import db
+from app.api.views import ResultView, ResultComponentView, AnswerView
 from app.api import bp
 from app.api.errors import VI404Exception, VI403Exception
 from app.auth.auth import check_user
