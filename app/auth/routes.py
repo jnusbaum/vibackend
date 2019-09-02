@@ -8,7 +8,7 @@ from flask_jwt_extended import (
     jwt_refresh_token_required, create_refresh_token
 )
 from app.auth import bp
-from app.errors.handlers import VI400Exception, VI401Exception, VI500Exception, VI404Exception
+from app.api.errors import VI400Exception, VI401Exception, VI500Exception, VI404Exception
 from app.auth.auth import auth_user, check_user, add_token_to_database
 from app import db
 from vidb.models import User

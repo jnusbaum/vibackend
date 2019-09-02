@@ -5,13 +5,13 @@ from sqlalchemy.ext.hybrid import hybrid_property
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    email = db.Column(db.Text, nullable=False, unique=True)
-    pword = db.Column(db.Text, nullable=False)
-    first_name = db.Column(db.Text, nullable=False)
+    email = db.Column(db.String(256), nullable=False, unique=True)
+    pword = db.Column(db.String(256), nullable=False)
+    first_name = db.Column(db.String(256), nullable=False)
     birth_Date = db.Column(db.Date, nullable=False, index=True)
-    gender = db.Column(db.Text, nullable=False, default='Other', index=True)
-    postal_code = db.Column(db.Text, nullable=False, )
-    role = db.Column(db.Text, nullable=False, default='viuser')  # one of vivendor, viuser
+    gender = db.Column(db.String(8), nullable=False, default='Other', index=True)
+    postal_code = db.Column(db.String(256), nullable=False, )
+    role = db.Column(db.String(32), nullable=False, default='viuser')  # one of vivendor, viuser
     last_login = db.Column(db.DateTime, index=True)
     last_notification = db.Column(db.DateTime, index=True)
     # foreign keys
@@ -25,10 +25,9 @@ db.Index('user_idx_email_pword', User.email, User.pword)
 
 
 class Token(db.Model):
-
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    jti = db.Column(db.Text, nullable=False, index=True)
-    token_type = db.Column(db.Text, nullable=False)
+    jti = db.Column(db.String(256), nullable=False, index=True)
+    token_type = db.Column(db.String(10), nullable=False)
     revoked = db.Column(db.Boolean, nullable=False)
     expires = db.Column(db.DateTime, nullable=False)
     # foreign keys
@@ -37,19 +36,18 @@ class Token(db.Model):
     user = db.relationship('User', back_populates='tokens')
 
 
-
 indexsubcomponent_question = db.Table('indexsubcomponent_question',
                                       db.Model.metadata,
-                                      db.Column('indexsubcomponent_name', db.Text, db.ForeignKey('indexsubcomponent.name'), nullable=False, index=True),
-                                      db.Column('question_name', db.Text, db.ForeignKey('question.name'), nullable=False, index=True)
+                                      db.Column('indexsubcomponent_name', db.String(256), db.ForeignKey('indexsubcomponent.name'), nullable=False, index=True),
+                                      db.Column('question_name', db.String(256), db.ForeignKey('question.name'), nullable=False, index=True)
                                       )
 
 
 class Question(db.Model):
     __tablename__ = 'question'
-    name = db.Column(db.Text, primary_key=True)
-    info = db.Column(db.Text, nullable=False, default='not yet')
-    qtext = db.Column(db.Text, nullable=False, default='not yet')
+    name = db.Column(db.String(256), primary_key=True)
+    info = db.Column(db.String(2048), nullable=False, default='not yet')
+    qtext = db.Column(db.String(2048), nullable=False, default='not yet')
     # foreign keys
     # relationships
     index_sub_components = db.relationship('IndexSubComponent', secondary=indexsubcomponent_question, back_populates='questions')
@@ -71,10 +69,10 @@ class Answer(db.Model):
     __tablename__ = 'answer'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     time_received = db.Column(db.DateTime, nullable=False)
-    answer = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.String(256), nullable=False)
     # foreign keys
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    question_name = db.Column(db.Text, db.ForeignKey('question.name'), nullable=False, index=True)
+    question_name = db.Column(db.String(256), db.ForeignKey('question.name'), nullable=False, index=True)
     # relationships
     user = db.relationship('User', back_populates='answers')
     question = db.relationship('Question', back_populates='answers')
@@ -96,7 +94,7 @@ class Result(db.Model):
     maxforanswered = db.Column(db.Integer, nullable=False)
     # foreign keys
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    index_name = db.Column(db.Text, db.ForeignKey('index.name'), nullable=False, index=True)
+    index_name = db.Column(db.String(256), db.ForeignKey('index.name'), nullable=False, index=True)
     # relationships
     user = db.relationship('User', back_populates='answers')
     index = db.relationship('Index', back_populates='results')
@@ -122,7 +120,7 @@ class ResultComponent(db.Model):
     maxforanswered = db.Column(db.Integer)
     # foreign keys
     result_id = db.Column(db.Integer, db.ForeignKey('result.id'), nullable=False, index=True)
-    indexcomponent_name = db.Column(db.Text, db.ForeignKey('indexcomponent.name'), nullable=False, index=True)
+    indexcomponent_name = db.Column(db.String(256), db.ForeignKey('indexcomponent.name'), nullable=False, index=True)
     # relationships
     result = db.relationship('Result', back_populates='result_components')
     result_sub_components = db.relationship('ResultSubComponent', back_populates='result_component')
@@ -144,7 +142,7 @@ class ResultSubComponent(db.Model):
     maxforanswered = db.Column(db.Integer)
     # foreign keys
     resultcomponent_id = db.Column(db.Integer, db.ForeignKey('resultcomponent.id'), nullable=False, index=True)
-    indexsubcomponent_name = db.Column(db.Text, db.ForeignKey('indexsubcomponent.name'), nullable=False, index=True)
+    indexsubcomponent_name = db.Column(db.String(256), db.ForeignKey('indexsubcomponent.name'), nullable=False, index=True)
     # relationships
     result_component = db.relationship('ResultComponent', back_populates='result_sub_components')
     db.relationship('IndexSubComponent', secondary=indexsubcomponent_question, back_populates='questions')
@@ -160,7 +158,7 @@ class ResultSubComponent(db.Model):
 
 class Index(db.Model):
     __tablename__ = 'index'
-    name = db.Column(db.Text, primary_key=True)
+    name = db.Column(db.String(256), primary_key=True)
     maxpoints = db.Column(db.Integer)
     # foreign keys
     # relationships
@@ -174,12 +172,12 @@ class Index(db.Model):
 
 class IndexComponent(db.Model):
     __tablename__ = 'indexcomponent'
-    name = db.Column(db.Text, primary_key=True)
+    name = db.Column(db.String(256), primary_key=True)
     maxpoints = db.Column(db.Integer)
-    info = db.Column(db.Text)
-    recommendation = db.Column(db.Text)
+    info = db.Column(db.String(2048))
+    recommendation = db.Column(db.String(2048))
     # foreign keys
-    index_name = db.Column(db.Text, db.ForeignKey('index.name'), nullable=False, index=True)
+    index_name = db.Column(db.String(256), db.ForeignKey('index.name'), nullable=False, index=True)
     # relationships
     index_sub_components = db.relationship('IndexSubComponent', back_populates='index_component')
     result_components = db.relationship('ResultComponent', back_populates='index_component')
@@ -191,12 +189,12 @@ class IndexComponent(db.Model):
 
 class IndexSubComponent(db.Model):
     __tablename__ = 'indexsubcomponent'
-    name = db.Column(db.Text, primary_key=True)
+    name = db.Column(db.String(256), primary_key=True)
     maxpoints = db.Column(db.Integer)
-    info = db.Column(db.Text)
-    recommendation = db.Column(db.Text)
+    info = db.Column(db.String(2048))
+    recommendation = db.Column(db.String(2048))
     # foreign keys
-    indexcomponent_name = db.Column(db.Text, db.ForeignKey('indexcomponent.name'), nullable=False, index=True)
+    indexcomponent_name = db.Column(db.String(256), db.ForeignKey('indexcomponent.name'), nullable=False, index=True)
     # relationships
     questions = db.relationship('Question', secondary=indexsubcomponent_question, back_populates='index_sub_components')
     index_component = db.relationship('IndexComponent', back_populates='index_sub_components')

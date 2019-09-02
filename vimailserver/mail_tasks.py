@@ -3,6 +3,7 @@ from email.message import EmailMessage
 from typing import Dict
 import smtplib
 from vidb.models import *
+from datetime import datetime
 
 from celeryconfig import celery, mailsvr, mailuser, mailpwd
 
@@ -244,7 +245,6 @@ def sendmail(email, msg):
 
 
 @celery.task(name='mail_tasks.send_welcome')
-@db_session
 def send_welcome(user_id: int):
 
     user = User[user_id]
@@ -265,7 +265,6 @@ def send_welcome(user_id: int):
 
 
 @celery.task(name='mail_tasks.send_reminder')
-@db_session
 def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]):
 
     user = User[user_id]

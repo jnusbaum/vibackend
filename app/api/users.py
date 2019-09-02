@@ -1,5 +1,5 @@
 import logging
-import datetime
+from datetime import datetime
 import pprint
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
@@ -10,14 +10,15 @@ from app import db
 from vidb.models import User, Question, Answer, Index, Result, ResultComponent, ResultSubComponent
 from app.views import UserView, AnswerView, ResultView
 from app.api import bp
-from app.errors.handlers import VI400Exception, VI404Exception
+from app.api.errors import VI400Exception, VI404Exception
 from app.auth.auth import check_user
+from vicalc import VICalculator
 
 from sqlalchemy.exc import IntegrityError
 
 def str_to_datetime(ans: str) -> Union[datetime, None]:
     if ans:
-        d = datetime.datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
+        d = datetime.strptime(ans, "%Y-%m-%d-%H-%M-%S")
         # no tz info, assumed to be in UTC
         return d
     return None
@@ -68,7 +69,7 @@ def new_user():
     bdate = None
     try:
         birthdate = credentials['birthdate']
-        bdate = datetime.datetime.strptime(birthdate, "%Y-%m-%d").date()
+        bdate = datetime.strptime(birthdate, "%Y-%m-%d").date()
     except KeyError:
         logging.error("new_user: birth date must be provided")
         raise VI400Exception("Birth date must be provided.")
@@ -151,7 +152,7 @@ def modify_user():
         pass
     try:
         birthdate = credentials['birthdate']
-        user.birth_date = datetime.datetime.strptime(birthdate, "%Y-%m-%d").date()
+        user.birth_date = datetime.strptime(birthdate, "%Y-%m-%d").date()
     except KeyError:
         pass
 
@@ -230,7 +231,7 @@ def answers_for_user():
 def add_answers_for_user():
     logging.info("in /users/answers[POST]")
     # truncate to second precision
-    trecv = datetime.datetime.utcnow().replace(microsecond=0)
+    trecv = datetime.utcnow().replace(microsecond=0)
 
     # authorize user, will abort if auth fails
     user = check_user(('viuser',))
@@ -323,7 +324,7 @@ def answer_counts_for_user():
 @jwt_required
 def results_for_user():
     logging.info("in /users/results[GET]")
-    trecv = datetime.datetime.utcnow().replace(microsecond=0)
+    trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
     user = check_user(('viuser',))
@@ -349,7 +350,7 @@ def results_for_user():
 @jwt_required
 def create_index_for_user():
     logging.info("in /users/results[POST]")
-    trecv = datetime.datetime.utcnow().replace(microsecond=0)
+    trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
     user = check_user(('viuser',))
@@ -458,7 +459,7 @@ def get_recommendations_for_result(component_name):
         aod = request.args.get('as-of-time', type=str_to_datetime)
         if not aod:
             # use current time
-            aod = datetime.datetime.utcnow().replace(microsecond=0)
+            aod = datetime.utcnow().replace(microsecond=0)
         logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
         results = results.filter(
             lambda r: r.time_generated <= aod).order_by(

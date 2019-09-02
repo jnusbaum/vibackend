@@ -5,7 +5,7 @@ from flask_jwt_extended import jwt_required
 from vidb.models import User, Result, ResultComponent
 from app.views import ResultView, ResultComponentView, AnswerView
 from app.api import bp
-from app.errors.handlers import VI404Exception, VI403Exception
+from app.api.errors import VI404Exception, VI403Exception
 from app.auth.auth import check_user
 from sqlalchemy.sql.expression import between
 

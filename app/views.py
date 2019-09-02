@@ -62,7 +62,7 @@ class ResultView:
                  'relationships': {
                      'user': "/users",
                      'answers': "/results/{0}/answers".format(result.id)
-                 }
+                    }
                  }
         # add index name as attribute
         dself['attributes']['name'] = result.name

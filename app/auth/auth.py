@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from passlib.hash import argon2
 from typing import Tuple
 from flask_jwt_extended import get_jwt_identity, decode_token
-from app.errors.handlers import VI401Exception, VI403Exception
+from app.api.errors import VI401Exception, VI403Exception
 from vidb.models import User, Token
 from app import db, jwt
 
