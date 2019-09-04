@@ -1,5 +1,5 @@
 """
-Primary app code. Listens to email and processes submissions
+Primary backend app code
 """
 from flask import Flask
 app = Flask(__name__)
