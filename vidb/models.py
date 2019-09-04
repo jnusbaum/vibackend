@@ -1,5 +1,4 @@
 from app import db
-from sqlalchemy.ext.hybrid import hybrid_property
 
 
 class User(db.Model):
@@ -8,7 +7,7 @@ class User(db.Model):
     email = db.Column(db.String(256), nullable=False, unique=True)
     pword = db.Column(db.String(256), nullable=False)
     first_name = db.Column(db.String(256), nullable=False)
-    birth_Date = db.Column(db.Date, nullable=False, index=True)
+    birth_date = db.Column(db.Date, nullable=False, index=True)
     gender = db.Column(db.String(8), nullable=False, default='Other', index=True)
     postal_code = db.Column(db.String(256), nullable=False, )
     role = db.Column(db.String(32), nullable=False, default='viuser')  # one of vivendor, viuser
@@ -53,10 +52,6 @@ class Question(db.Model):
     index_sub_components = db.relationship('IndexSubComponent', secondary=indexsubcomponent_question, back_populates='questions')
     answers = db.relationship('Answer', back_populates='question')
 
-    @hybrid_property
-    def indexes(self):
-        return self.index_sub_components.index_component.index
-
 
 answer_result = db.Table('answer_result',
                       db.Model.metadata,
@@ -78,10 +73,6 @@ class Answer(db.Model):
     question = db.relationship('Question', back_populates='answers')
     results = db.relationship('Result', secondary=answer_result, back_populates='answers')
 
-    @hybrid_property
-    def indexes(self):
-        return self.question.indexes
-
 # indexes
 db.Index('answer_idx_user_question_time', Answer.user_id, Answer.question_name, Answer.time_received)
 
@@ -101,14 +92,6 @@ class Result(db.Model):
     answers = db.relationship('Answer', secondary=answer_result, back_populates='results')
     result_components = db.relationship('ResultComponent', back_populates='result')
 
-    @hybrid_property
-    def name(self):
-        return self.index.name
-
-    @hybrid_property
-    def maxpoints(self):
-        return self.index.maxpoints
-
 # indexes
 db.Index('result_idx_user_index_time', Result.user_id, Result.index_name, Result.time_generated)
 
@@ -126,14 +109,6 @@ class ResultComponent(db.Model):
     result_sub_components = db.relationship('ResultSubComponent', back_populates='result_component')
     index_component = db.relationship('IndexComponent', back_populates='result_components')
 
-    @hybrid_property
-    def name(self):
-        return self.index_component.name
-
-    @hybrid_property
-    def maxpoints(self):
-        return self.index_component.maxpoints
-
 
 class ResultSubComponent(db.Model):
     __tablename__ = 'resultsubcomponent'
@@ -145,15 +120,7 @@ class ResultSubComponent(db.Model):
     indexsubcomponent_name = db.Column(db.String(256), db.ForeignKey('indexsubcomponent.name'), nullable=False, index=True)
     # relationships
     result_component = db.relationship('ResultComponent', back_populates='result_sub_components')
-    db.relationship('IndexSubComponent', secondary=indexsubcomponent_question, back_populates='questions')
-
-    @hybrid_property
-    def name(self):
-        return self.index_sub_component.name
-
-    @hybrid_property
-    def maxpoints(self):
-        return self.index_sub_component.maxpoints
+    index_sub_component = db.relationship('IndexSubComponent', back_populates='result_sub_components')
 
 
 class Index(db.Model):
@@ -165,10 +132,6 @@ class Index(db.Model):
     index_components = db.relationship('IndexComponent', back_populates='index')
     results = db.relationship('Result', back_populates='index')
 
-    @hybrid_property
-    def questions(self):
-        return self.index_components.index_sub_components.questions
-
 
 class IndexComponent(db.Model):
     __tablename__ = 'indexcomponent'
@@ -179,12 +142,9 @@ class IndexComponent(db.Model):
     # foreign keys
     index_name = db.Column(db.String(256), db.ForeignKey('index.name'), nullable=False, index=True)
     # relationships
+    index = db.relationship('Index', back_populates='index_components')
     index_sub_components = db.relationship('IndexSubComponent', back_populates='index_component')
     result_components = db.relationship('ResultComponent', back_populates='index_component')
-
-    @hybrid_property
-    def questions(self):
-        return self.index_sub_components.questions
 
 
 class IndexSubComponent(db.Model):

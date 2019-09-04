@@ -9,7 +9,7 @@ from app.api import bp
 from app.api.errors import VI404Exception, VI403Exception
 from app.auth.auth import check_user
 from sqlalchemy.sql.expression import between
-
+from sqlalchemy import func
 
 # get result
 @bp.route('/results/<int:result_id>', methods=['GET'])
@@ -99,12 +99,9 @@ def get_statistics():
             ages = agerange.split('-')
             dplus = td - datetime.timedelta(days=int(ages[0]) * 365)
             dminus = td - datetime.timedelta(days=int(ages[1]) * 365)
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u and u.gender == gender
-                         and between(u.birth_date, dminus, dplus)
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
+            vgs = db.session.query(func.avg(Result.points), func.avg(Result.maxforanswered)).join(User)
+            vgs = vgs.filter(User.gender == 'Male').filter(User.birth_date.between(dminus, dplus))
+            vgs = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(Result.user_id == User.id).correlate(User))
         else:
             # age range is string like "x-y"
             ages = agerange.split('-')
