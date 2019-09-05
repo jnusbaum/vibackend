@@ -11,14 +11,14 @@ from datetime import datetime
 # app.logger.setLevel(app.config['LOGLEVEL'])
 logfile = app.config['LOGDIR'] + app.config['LOGNAME']
 # # check for existence and rotate
-# if os.path.isfile(logfile):
-#     # rename with time
-#     bname = app.config['LOGNAME'].split('.')[0]
-#     nname = "%s.%s.log" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
-#     os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
-# else:
-# create log directory if it does not exist
-os.makedirs(app.config['LOGDIR'], 0o777, True)
+if os.path.isfile(logfile):
+    # rename with time
+    bname = app.config['LOGNAME'].split('.')[0]
+    nname = "%s.%s.log" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
+    os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
+else:
+    # create log directory if it does not exist
+    os.makedirs(app.config['LOGDIR'], 0o777, True)
 import logging
 # fh = logging.FileHandler(logfile)
 # fh.setLevel(app.config['LOGLEVEL'])
