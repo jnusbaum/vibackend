@@ -8,7 +8,8 @@ app.config.from_pyfile('./config/viservice.cfg')
 import os
 from datetime import datetime
 # set up logger
-# app.logger.setLevel(app.config['LOGLEVEL'])
+app.config['LOGDIR'] = os.getenv('LOGDIR')
+app.config['LOGNAME'] = os.getenv('LOGNAME')
 logfile = app.config['LOGDIR'] + app.config['LOGNAME']
 # # check for existence and rotate
 if os.path.isfile(logfile):
