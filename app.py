@@ -864,7 +864,7 @@ def get_recommendations_for_result(component_name):
                 # get 3 recommendations
                 break
             logging.info(
-                "get_recommendations: generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
+                "get_recommendations: generating recommendation for %s", sub.name)
             if sub.index_sub_component.recommendation:
                 logging.info(
                     "get_recommendations: adding recommendation for %s", sub.name)
