@@ -16,7 +16,11 @@ if os.path.isfile(logfile):
     # rename with time
     bname = app.config['LOGNAME'].split('.')[0]
     nname = "%s.%s.log" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
-    os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
+    try:
+        os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
+    except FileNotFoundError:
+        # what the hell!!
+        print("log file %s found but then not found????" % logfile)
 else:
     # create log directory if it does not exist
     os.makedirs(app.config['LOGDIR'], 0o777, True)
