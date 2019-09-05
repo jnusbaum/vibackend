@@ -17,8 +17,8 @@ logfile = app.config['LOGDIR'] + app.config['LOGNAME']
 #     nname = "%s.%s.log" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
 #     os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
 # else:
-#     # create log directory if it does not exist
-#     os.makedirs(app.config['LOGDIR'], 0o777, True)
+# create log directory if it does not exist
+os.makedirs(app.config['LOGDIR'], 0o777, True)
 import logging
 # fh = logging.FileHandler(logfile)
 # fh.setLevel(app.config['LOGLEVEL'])
