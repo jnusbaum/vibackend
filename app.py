@@ -10,34 +10,25 @@ from datetime import datetime
 # set up logger
 app.config['LOGDIR'] = os.getenv('LOGDIR')
 app.config['LOGNAME'] = os.getenv('LOGNAME')
-logfile = app.config['LOGDIR'] + app.config['LOGNAME']
-# # check for existence and rotate
-if os.path.isfile(logfile):
-    # rename with time
-    bname = app.config['LOGNAME'].split('.')[0]
-    nname = "%s.%s.log" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"))
-    try:
-        os.rename(logfile, os.path.join(app.config['LOGDIR'], nname))
-    except FileNotFoundError:
-        # what the hell!!
-        print("log file %s found but then not found????" % logfile)
-else:
-    # create log directory if it does not exist
-    os.makedirs(app.config['LOGDIR'], 0o777, True)
-import logging
-# fh = logging.FileHandler(logfile)
-# fh.setLevel(app.config['LOGLEVEL'])
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# fh.setFormatter(formatter)
-# app.logger.addHandler(fh)
-
+# make file unique
+# we will be running multiple processes behind gunicorn
+# we do not want all the processes writing to the same log file as this can result in garbled data in the file
+# so we need a unique file name each time we run
+# we will add date and time down to seconds (which will probably be the same for all processes)
+# and add process id to get uniqueness
+fparts = app.config['LOGNAME'].split('.')
+bname = fparts[0]
+ename = fparts[1]
+nname = "%s.%s.%d.%s" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"), os.getpid(), ename)
+logfile = app.config['LOGDIR'] + nname
+# create log directory if it does not exist
+os.makedirs(app.config['LOGDIR'], 0o777, True)
 app.config['LOGLEVEL'] = os.getenv('LOGLEVEL')
 # set up basic logging
+import logging
 logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
 
 from typing import Tuple, Union
-# logging
-import logging
 # pretty printing/formatting
 import pprint
 # date and time stuff
@@ -192,6 +183,8 @@ def auth_user(email: str, pwd: str) -> User:
         # not authenticated
         logging.warning("auth_user: failed to authenticate %s", email)
         raise VI401Exception("Incorrect email or password")
+
+    logging.info('auth_user: user %s authenticated', email)
     return user
 
 
@@ -212,6 +205,7 @@ def check_user(role_set: Tuple[str, ...]) -> User:
         logging.warning("in check_user: insufficient privilege for user %s", user.email)
         raise VI403Exception("User does not have permission.")
 
+    logging.info('check_user: user %s checked', user.email)
     return user
 
 
@@ -251,7 +245,8 @@ def reset_password_start():
     except mail_tasks.send_password_reset.OperationalError as oe:
         logging.error("reset_password: error sending password reset email to %s", email)
         raise VI500Exception("error sending password reset email")
-    logging.info("reset_password: reset email sent")
+
+    logging.info("reset_password: reset email sent for %s", user.email)
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
@@ -288,6 +283,7 @@ def reset_password_finish():
         # not authenticated
         logging.error("reset password: User not found")
         raise VI404Exception("User not found.")
+
     logging.info("finishing reset of password for %s", user.email)
     user.pword = argon2.hash(password)
     for token in user.tokens:
@@ -419,6 +415,8 @@ def new_user():
         # already exists
         logging.error("new_user: user name exists %s", email)
         raise VI400Exception("User with specified email already exists.")
+
+    logging.info("new_user: created %s", user.email)
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
 
     return jsonify(ret_results), 201
@@ -433,6 +431,7 @@ def new_user():
 def get_user():
     logging.info("in /users[GET]")
     user = check_user(('viuser',))
+    logging.info("get_user: got %s", user.email)
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
     return jsonify(ret_results)
 
@@ -491,7 +490,7 @@ def modify_user():
         pass
 
     flush()
-
+    logging.info("modify_user: modified %s", user.email)
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
     return jsonify(ret_results)
 
@@ -508,8 +507,8 @@ def delete_user():
         token.revoked = True
     # deletes ALL user data - user record, all answers and results
     user.delete()
-    return jsonify(
-        {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully deleted user {} out".format(user.email)}]})
+    logging.info("delete_user: deleted %s", user.email)
+    return jsonify({'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully deleted user {} out".format(user.email)}]})
 
 
 # get answer set for user
@@ -559,6 +558,7 @@ def answers_for_user():
                 manswers[answer.question] = answer
         answers = manswers.values()
 
+    logging.info("answers_for_user: answers fetched for %s", user.email)
     ret_answers = {'count': len(answers), 'data': [AnswerView.render(a) for a in answers]}
     return jsonify(ret_answers)
 
@@ -624,7 +624,7 @@ def add_answers_for_user():
 
     # flush to get ids assigned before rendering
     flush()
-
+    logging.info("add_answers_for_user: add answers for %s", user.email)
     ranswers = {'count': len(ret_answers), 'data': [AnswerView.render(a) for a in ret_answers]}
     return jsonify(ranswers), 201
 
@@ -660,6 +660,7 @@ def answer_counts_for_user():
                 counts[c.name]['answered'] += 1
                 counts[index_id]['answered'] += 1
 
+    logging.info("answer_counts_for_user: counted answers for %s", user.email)
     ret_answers = {'count': 1, 'data': [counts]}
     return jsonify(ret_answers)
 
@@ -689,6 +690,8 @@ def results_for_user():
     numpts = request.args.get('numpts', type=int, default=1)
     results = results.filter(lambda r: r.index == idx and r.time_generated <= aod).order_by(
         lambda r: desc(r.time_generated))[:numpts]
+
+    logging.info("results_for_user: fetched results for %s", user.email)
     ret_results = [ResultView.render(r) for r in results]
     rresults = {'count': len(ret_results), 'data': ret_results}
     return jsonify(rresults)
@@ -776,6 +779,7 @@ def create_index_for_user():
                                maxforanswered=scscore['MAXFORANSWERED'], result_component=ic,
                                index_sub_component=idxsubcomp)
 
+    logging.info("create_index_for_user: created index for %s", user.email)
     # flush to get ids assigned before rendering
     flush()
     rresults = {'count': 1, 'data': [ResultView.render(res)]}
@@ -840,11 +844,10 @@ def get_recommendations_for_result(component_name):
         component = components[0]
 
         aratio = component.maxforanswered / component.maxpoints
-        logging.info("get_recommendations: found component %s with aratio %f for %s", component.name, aratio, user.email)
+        logging.info("get_recommendations: found component %s for %s", component.name, user.email)
         if aratio < .5:
             # answer more questions
-            logging.info("get_recommendations: generating recommendation for %s, with score %f", component.name,
-                                                                               component.maxforanswered / component.maxpoints)
+            logging.info("get_recommendations: generating recommendation for %s", component.name)
             recommendations.append({'type': 'Recommendation',
                                     'component': component.name,
                                     'text': 'One of the best ways to increase your Vitality Index score and make it more accurate is to answer more questions'})
@@ -873,6 +876,7 @@ def get_recommendations_for_result(component_name):
                 logging.info(
                     "get_recommendations: empty recommendation for %s", sub.name)
 
+    logging.info("get_recommendations_for_result: recommendations for %s", user.email)
     return jsonify({'count': len(recommendations), 'data': recommendations})
 
 
@@ -898,6 +902,7 @@ def get_answer(answer_id):
         # resource exists but is not owned by, and therefore not viewable by, user
         raise VI403Exception("User does not have permission.")
 
+    logging.info("get_answer: got answer for %s", user.email)
     ranswers = {'count': 1, 'data': [AnswerView.render(answer)]}
     return jsonify(ranswers)
 
@@ -920,6 +925,7 @@ def get_answer_results(answer_id):
         # resource exists but is not owned by, and therefore not viewable by, user
         raise VI403Exception("User does not have permission.")
 
+    logging.info("get_answer_results: got results for %s", user.email)
     rresults = {'count': len(answer.results), 'data': [ResultView.render(r) for r in answer.results]}
     return jsonify(rresults)
 
@@ -947,6 +953,8 @@ def get_result(result_id):
     if result.user != user:
         # resource exists but is not owned by, and therefor enot viewable by, user
         raise VI403Exception("User does not have permission.")
+
+    logging.info("get_result: got result for %s", user.email)
     rresults = {'count': 1, 'data': [ResultView.render(result)]}
     return jsonify(rresults)
 
@@ -976,6 +984,8 @@ def get_result_component(result_id, component_id):
         raise VIServiceException(404, "no ResultComponent with specified id")
     if component.result != result:
         raise VIServiceException(404, "no ResultComponent with specified id in this resource tree")
+
+    logging.info("get_result_components: got component for %s", user.email)
     rresults = {'count': 1, 'data': [ResultComponentView.render(component)]}
     return jsonify(rresults)
 
@@ -999,6 +1009,7 @@ def get_result_answers(result_id):
         # resource exists but is not owned by, and therefor enot viewable by, user
         raise VI403Exception("User does not have permission.")
 
+    logging.info("get_result_answers: got answers for %s", user.email)
     ranswers = {'count': len(result.answers), 'data': [AnswerView.render(a) for a in result.answers]}
     return jsonify(ranswers)
 
@@ -1017,7 +1028,7 @@ def get_statistics():
     logging.info("in /statistics[GET]")
     trecv = datetime.utcnow()
     # authenticate user
-    check_user(('viuser',))
+    user = check_user(('viuser',))
 
     agerange = request.args.get('agerange')
     gender = request.args.get('gender')
@@ -1121,8 +1132,10 @@ def get_statistics():
             }
             result['attributes']['result_components'].append(rc)
 
+        logging.info("get_statistics: got statistics for %s", user.email)
         return jsonify({'count': 1, 'data': [result]})
     else:
+        logging.info("get_statistics: got statistics for %s", user.email)
         return jsonify({'count': 0, 'data': []})
 
 
