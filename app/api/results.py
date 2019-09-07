@@ -2,8 +2,7 @@ import logging
 from datetime import datetime, date, timedelta
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
-from vidb.models import User, Result, ResultComponent, IndexComponent
-from app import db
+from vidb.models import db, User, Result, ResultComponent, IndexComponent
 from app.api.views import ResultView, ResultComponentView, AnswerView
 from app.api import bp
 from app.api.errors import VI404Exception, VI403Exception
@@ -103,8 +102,7 @@ def get_statistics():
         dplus = td - timedelta(days=int(ages[0]) * 365)
         dminus = td - timedelta(days=int(ages[1]) * 365)
         vgs = vgs.filter(User.birth_date.between(dminus, dplus))
-    vg = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(
-        Result.user_id == User.id).correlate(User)).first()
+    vg = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(Result.user_id == User.id).correlate(User)).first()
     if vg:
         result = {
             'type': 'Result',
@@ -118,9 +116,9 @@ def get_statistics():
             }
         }
 
-        vgs = db.session.query(IndexComponent.name, func.avg(ResultComponent.points),
-                            func.avg(ResultComponent.maxforanswered)).join(Result).join(User).join(
-            IndexComponent).group_by(IndexComponent.name)
+        vgs = db.session.query(IndexComponent.name,
+                               func.avg(ResultComponent.points),
+                               func.avg(ResultComponent.maxforanswered)).join(Result).join(User).join(IndexComponent).group_by(IndexComponent.name)
         if agerange:
             # age range is string like "x-y"
             ages = agerange.split('-')
@@ -131,8 +129,7 @@ def get_statistics():
         if gender:
             vgs = vgs.filter(User.gender == gender)
 
-        vgs = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(
-            Result.user_id == User.id).correlate(User))
+        vgs = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(Result.user_id == User.id).correlate(User))
 
         for vg in vgs:
             rc = {

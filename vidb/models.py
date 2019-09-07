@@ -1,4 +1,6 @@
-from app import db
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
 
 
 class User(db.Model):
@@ -87,7 +89,7 @@ class Result(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     index_name = db.Column(db.String(256), db.ForeignKey('index.name'), nullable=False, index=True)
     # relationships
-    user = db.relationship('User', back_populates='answers')
+    user = db.relationship('User', back_populates='results')
     index = db.relationship('Index', back_populates='results')
     answers = db.relationship('Answer', secondary=answer_result, back_populates='results')
     result_components = db.relationship('ResultComponent', cascade="all, delete-orphan", back_populates='result')

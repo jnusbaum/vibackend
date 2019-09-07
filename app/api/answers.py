@@ -1,8 +1,7 @@
 import logging
 from flask import jsonify
 from flask_jwt_extended import jwt_required
-from vidb.models import Answer
-from app import db
+from vidb.models import db, Answer
 from app.api.views import ResultView, AnswerView
 from app.api import bp
 from app.api.errors import VI404Exception, VI403Exception

@@ -4,8 +4,8 @@ from passlib.hash import argon2
 from typing import Tuple
 from flask_jwt_extended import get_jwt_identity, decode_token
 from app.api.errors import VI401Exception, VI403Exception
-from vidb.models import User, Token
-from app import db, jwt
+from vidb.models import db, User, Token
+from app import jwt
 
 
 def _epoch_utc_to_datetime(epoch_utc) -> datetime:
@@ -65,7 +65,7 @@ def auth_user(email: str, pwd: str) -> User:
 
     # lookup in db and authenticate
     # lookup User with email
-    user = User.query.one_or_none(email=email).first()
+    user = db.session.query(User).filter(User.email == email).one_or_none()
     if not user:
         # not authenticated
         logging.warning("auth_user: failed to authenticate %s", email)
@@ -82,7 +82,7 @@ def check_user(role_set: Tuple[str, ...]) -> User:
     identity = get_jwt_identity()
     user_id = identity['id']
     logging.info('check_user: checking user %s', user_id)
-    user = User.query.get(user_id)
+    user = db.session.query(User).get(user_id)
     if not user:
         # not authenticated
         logging.error("check_user: failed to authenticate user id does not exist - %s", user_id)

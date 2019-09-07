@@ -2,12 +2,11 @@ import logging
 import os
 from datetime import datetime
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
 from flask_jwt_extended import JWTManager
+from vidb.models import db
 
-db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 

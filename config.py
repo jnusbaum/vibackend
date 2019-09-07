@@ -22,3 +22,5 @@ class Config(object):
     IDANGEROUSKEY = os.environ.get('ITSDANGEROUSKEY') or 'you-will-never-guess'
 
     INDEX = os.environ.get('INDEX') or "Vitality Index"
+    WWWHOST = 'localhost'
+    WWWPORT = 5000

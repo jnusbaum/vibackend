@@ -10,8 +10,7 @@ from flask_jwt_extended import (
 from app.auth import bp
 from app.api.errors import VI400Exception, VI401Exception, VI500Exception, VI404Exception
 from app.auth.auth import auth_user, check_user, add_token_to_database
-from app import db
-from vidb.models import User
+from vidb.models import db, User
 from vimailserver import mail_tasks
 
 
@@ -30,7 +29,7 @@ def reset_password_start():
         logging.error("reset_password: incorrect input - no url")
         raise VI400Exception("Please provide url.")
     # lookup email in user db
-    user = User.query.filter(email=email).one_or_none()
+    user = db.session.query(User).filter(email=email).one_or_none()
     if not user:
         logging.error("reset_password: email %s not found", email)
         raise VI404Exception("User not found.")
@@ -74,7 +73,7 @@ def reset_password_finish():
         logging.error("reset password: token invalid")
         raise VI400Exception("Token invalid.")
     # if not expired
-    user = User.query.get(user_id)
+    user = db.session.query(User).get(user_id)
     if not user:
         # not authenticated
         logging.error("reset password: User not found")
@@ -83,7 +82,7 @@ def reset_password_finish():
     user.pword = argon2.hash(password)
     for token in user.tokens:
         token.revoked = True
-        db.session.add(token)
+    db.session.add(user) # should cause tokens to be added/saved too
     db.session.commit()
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully updated password for {}".format(user.email)}]})
@@ -105,10 +104,10 @@ def login():
 
     add_token_to_database(access_token, user)
     add_token_to_database(refresh_token, user)
-    # create_access_token supports an optional 'fresh' argument,
-    # which marks the token as fresh or non-fresh accordingly.
-    # As we just verified their email and password, we are
-    # going to mark the token as fresh here.
+
+    db.session.add(user)
+    db.session.commit()
+
     ret = {'count': 1, 'data': [{'type': 'AccessToken', 'access_token': access_token, 'refresh_token': refresh_token}]}
     return jsonify(ret)
 
@@ -124,6 +123,10 @@ def refresh():
     user.last_login = datetime.utcnow()
     new_token = create_access_token(identity={'id': user.id}, fresh=True)
     add_token_to_database(new_token, user)
+
+    db.session.add(user)
+    db.session.commit()
+
     ret = {'count': 1, 'data': [{'type': 'AccessToken', 'access_token': new_token, 'refresh_token': None}]}
     return jsonify(ret)
 
@@ -137,5 +140,9 @@ def logout():
     logging.info("logout: logging out %s", user.email)
     for token in user.tokens:
         token.revoked = True
+
+    db.session.add(user)
+    db.session.commit()
+
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully logged out user {}".format(user.email)}]})

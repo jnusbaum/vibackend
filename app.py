@@ -3,8 +3,8 @@ Primary app code. Listens to email and processes submissions
 """
 import logging
 from flask import request
-from app import create_app, db
-from vidb.models import User, Token, Question, Answer, Result, ResultComponent, ResultSubComponent, \
+from app import create_app
+from vidb.models import db, User, Token, Question, Answer, Result, ResultComponent, ResultSubComponent, \
     Index, IndexComponent, IndexSubComponent
 
 
@@ -25,3 +25,8 @@ def make_shell_context():
             'Result': Result, 'ResultComponent': ResultComponent, 'ResultSubComponent': ResultSubComponent,
             'Index': Index, 'IndexComponent': IndexComponent, 'IndexSubComponent': IndexSubComponent
             }
+
+
+if __name__ == '__main__':
+    app.run(host=app.config['WWWHOST'],
+            port=app.config['WWWPORT'])

@@ -1,5 +1,5 @@
 from flask import jsonify
-from app import db
+from vidb.models import db
 from app.api import bp
 
 class VIServiceException(Exception):

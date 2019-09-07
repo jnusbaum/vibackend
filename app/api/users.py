@@ -6,8 +6,7 @@ from flask_jwt_extended import jwt_required
 from passlib.hash import argon2
 from typing import Union
 
-from app import db
-from vidb.models import User, Question, Answer, Index, Result, ResultComponent, ResultSubComponent
+from vidb.models import db, User, Question, Answer, Index, Result, ResultComponent, ResultSubComponent, IndexComponent, IndexSubComponent
 from app.api.views import UserView, AnswerView, ResultView
 from app.api import bp
 from app.api.errors import VI400Exception, VI404Exception
@@ -170,12 +169,10 @@ def modify_user():
 def delete_user():
     logging.info("in /users[DELETE]")
     user = check_user(('viuser',))
-    # logout first
-    # for token in user.tokens:
-    #     token.revoked = True
     # deletes ALL user data - user record, all answers and results
     db.session.delete(user)
     db.commit()
+
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully deleted user {} out".format(user.email)}]})
 
@@ -194,7 +191,7 @@ def answers_for_user():
     user = check_user(('viuser',))
 
     # get index
-    idx = Index.query.get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(bp.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
@@ -251,7 +248,7 @@ def add_answers_for_user():
         raise VI400Exception("No answers supplied.")
 
     # get index
-    idx = Index.query.get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(bp.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
@@ -276,7 +273,6 @@ def add_answers_for_user():
             db.session.add(answer)
             ret_answers.append(answer)
 
-    # flush to get ids assigned before rendering
     db.session.commit()
 
     ranswers = {'count': len(ret_answers), 'data': [AnswerView.render(a) for a in ret_answers]}
@@ -292,24 +288,23 @@ def answer_counts_for_user():
     # authenticate user
     user = check_user(('viuser',))
 
-    answers = user.answers
-
     # get index
-    idx = Index.query.get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(bp.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
-    answers = answers.filter(lambda a: idx in a.indexes)
 
-    counts = {bp.config['INDEX']: {'total': 0, 'answered': 0}}
-    for c in idx.index_components:
-        counts[c.name] = {'total': 0, 'answered': 0}
-        for q in c.questions:
-            counts[c.name]['total'] += 1
-            counts[bp.config['INDEX']]['total'] += 1
-            qanswers = answers.filter(lambda a: a.question == q)
-            if len(qanswers) > 0:
-                counts[c.name]['answered'] += 1
-                counts[bp.config['INDEX']]['answered'] += 1
+    counts = {idx.name: {'total': 0, 'answered': 0}}
+    for ic in idx.index_components:
+        for isc in ic.index_sub_components:
+            counts[ic.name] = {'total': 0, 'answered': 0}
+            for q in isc.questions:
+                counts[ic.name]['total'] += 1
+                counts[idx.name]['total'] += 1
+                answers = db.session.query(Answer).join(User)
+                nanswers = answers.filter(User.id == user.id).filter(Answer.question_name == q.name).count()
+                if nanswers > 0:
+                    counts[ic.name]['answered'] += 1
+                    counts[idx.name]['answered'] += 1
 
     ret_answers = {'count': 1, 'data': [counts]}
     return jsonify(ret_answers)
@@ -328,15 +323,15 @@ def results_for_user():
     results = user.results
 
     # get index
-    idx = Index.query.get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(bp.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
+    results = db.session.query(Result).filter(Result.user_id == user.id).filter(Result.index_name == idx.name)
     # this parameter can be a datetime string or not provided
     aod = request.args.get('as-of-time', type=str_to_datetime, default=trecv)
     numpts = request.args.get('numpts', type=int, default=1)
-    results = results.filter(lambda r: r.index == idx and r.time_generated <= aod).order_by(
-        lambda r: func.desc(r.time_generated))[:numpts]
+    results = results.filter(Result.time_generated <= aod).order_by(Result.time_generated.desc()).limit(numpts)
     ret_results = [ResultView.render(r) for r in results]
     rresults = {'count': len(ret_results), 'data': ret_results}
     return jsonify(rresults)
@@ -363,24 +358,29 @@ def create_index_for_user():
     else:
         aod = str_to_datetime(data['as-of-time'])
 
-    idx = Index.query.get(bp.config['INDEX'])
+    aod = trecv
+
+    # get index
+    idx = db.session.query(Index).get(bp.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
-    questions = idx.questions
+    questions = db.session.query(Question).join((IndexSubComponent, Question.index_sub_components)).join(IndexComponent)
+    questions = questions.filter(IndexComponent.index_name == idx.name)
     answers = {}
     found_at_least_one = False
     # questions now holds all the questions defined
     # map questions by name and create null answer for each question
     for question in questions:
-        answers[question.name] = None
-        # get the latest answer for this question and user
-        lanswers = question.answers.filter(
-            lambda a: a.user == user and a.time_received <= aod).order_by(
-            lambda a: func.desc(a.time_received))[:1]
-        if lanswers:
-            found_at_least_one = True
-            answers[question.name] = lanswers[0]
+        if not question.name in answers:
+            answers[question.name] = None
+            # get the latest answer for this question and user
+            lanswers = db.session.query(Answer).filter(Answer.user_id == user.id).filter(Answer.time_received <= aod)
+            lanswers = lanswers.filter(Answer.question == question).order_by(Answer.time_received.desc()).limit(
+                1).first()
+            if lanswers:
+                found_at_least_one = True
+                answers[question.name] = lanswers
 
     if not found_at_least_one:
         # no answers in db
@@ -390,7 +390,6 @@ def create_index_for_user():
 
     bdate = user.birth_date
     # calculate score
-    logging.info('create_index_for_user: creating index for %s', user.email)
     # add birthdate to answers
     ret_answers['BirthDate'] = bdate.strftime("%Y-%m-%d")
     ret_answers['Gender'] = user.gender
@@ -398,7 +397,6 @@ def create_index_for_user():
 
     # create the result linked to index
     logging.info("create_index_for_user: creating Result for %s", user.email)
-
     res = Result(time_generated=aod, user=user, points=score['INDEX'],
                  maxforanswered=score['MAXFORANSWERED'], index=idx)
 
@@ -406,19 +404,17 @@ def create_index_for_user():
     logging.info("create_index_for_user: Updating Answers - linking to Result for %s", user.email)
     for answer in answers.values():
         if answer:
-            res.answers.add(answer)
+            res.answers.append(answer)
 
     # create and link index components
     logging.info("create_index_for_user: Saving Result Components for %s", user.email)
     for icname, icscore in score['COMPONENTS'].items():
-        idxcomp = idx.index_components.filter(lambda i: i.name == icname).get()
         ic = ResultComponent(points=icscore['POINTS'],
-                             maxforanswered=icscore['MAXFORANSWERED'], result=res, index_component=idxcomp)
+                             maxforanswered=icscore['MAXFORANSWERED'], result=res, indexcomponent_name=icname)
         for scname, scscore in icscore['COMPONENTS'].items():
-            idxsubcomp = idxcomp.index_sub_components.filter(lambda i: i.name == scname).get()
             ResultSubComponent(points=scscore['POINTS'],
                                maxforanswered=scscore['MAXFORANSWERED'], result_component=ic,
-                               index_sub_component=idxsubcomp)
+                               indexsubcomponent_name=scname)
 
     db.session.add(res)
     db.session.commit()
@@ -444,7 +440,7 @@ def get_recommendations_for_result(component_name):
     result = None
     results = user.results
 
-    idx = Index.query.get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(bp.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
     results = results.filter(lambda r: r.index == idx)
