@@ -1,3 +1,4 @@
+alembic
 adal==1.2.2
 amqp==2.5.1
 argon2-cffi==19.1.0

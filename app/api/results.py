@@ -9,6 +9,7 @@ from app.api import bp
 from app.api.errors import VI404Exception, VI403Exception
 from app.auth.auth import check_user
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
 # get result
 @bp.route('/results/<int:result_id>', methods=['GET'])
@@ -17,7 +18,7 @@ def get_result(result_id):
     logging.info("in /results/<result_id>[GET]")
     user = check_user(('viuser',))
 
-    result = Result.query.get(result_id)
+    result = db.session.query(Result).get(result_id)
     if not result:
         # no result with this id
         raise VI404Exception("No Result with specified id.")
@@ -36,14 +37,14 @@ def get_result_component(result_id, component_id):
     logging.info("in /results/%s/components/%s[GET]", result_id, component_id)
     # authenticate user
     user = check_user(('viuser',))
-    result = Result.query.get(result_id)
+    result = db.session.query(Result).get(result_id)
     if not result:
         # no result with this id
         raise VI404Exception("No Result with specified id.")
     if result.user != user:
         # resource exists but is not owned by, and therefor enot viewable by, user
         raise VI403Exception("User does not have permission.")
-    component = ResultComponent.query.get(component_id)
+    component = db.session.query(ResultComponent).get(component_id)
     if not component:
         # Component does not exist
         raise VI404Exception("no ResultComponent with specified id")
@@ -59,7 +60,7 @@ def get_result_component(result_id, component_id):
 def get_result_answers(result_id):
     logging.info("in /results/%s/answers[GET]", result_id)
     user = check_user(('viuser',))
-    result = Result.query.get(result_id)
+    result = db.session.query(Result).options(joinedload(Result.answers)).get(result_id)
     if not result:
         # no result with this id
         raise VI404Exception("No Result with specified id.")
