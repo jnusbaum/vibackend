@@ -15,9 +15,9 @@ class User(db.Model):
     last_notification = db.Column(db.DateTime, index=True)
     # foreign keys
     # relationships
-    results = db.relationship('Result', back_populates='user')
-    answers = db.relationship('Answer', back_populates='user')
-    tokens = db.relationship('Token', back_populates='user')
+    results = db.relationship('Result', cascade="all, delete-orphan", back_populates='user')
+    answers = db.relationship('Answer', cascade="all, delete-orphan", back_populates='user')
+    tokens = db.relationship('Token', cascade="all, delete-orphan", back_populates='user')
 
 # indexes
 db.Index('user_idx_email_pword', User.email, User.pword)
@@ -90,7 +90,7 @@ class Result(db.Model):
     user = db.relationship('User', back_populates='answers')
     index = db.relationship('Index', back_populates='results')
     answers = db.relationship('Answer', secondary=answer_result, back_populates='results')
-    result_components = db.relationship('ResultComponent', back_populates='result')
+    result_components = db.relationship('ResultComponent', cascade="all, delete-orphan", back_populates='result')
 
 # indexes
 db.Index('result_idx_user_index_time', Result.user_id, Result.index_name, Result.time_generated)
@@ -106,7 +106,7 @@ class ResultComponent(db.Model):
     indexcomponent_name = db.Column(db.String(256), db.ForeignKey('indexcomponent.name'), nullable=False, index=True)
     # relationships
     result = db.relationship('Result', back_populates='result_components')
-    result_sub_components = db.relationship('ResultSubComponent', back_populates='result_component')
+    result_sub_components = db.relationship('ResultSubComponent', cascade="all, delete-orphan", back_populates='result_component')
     index_component = db.relationship('IndexComponent', back_populates='result_components')
 
 
@@ -129,7 +129,7 @@ class Index(db.Model):
     maxpoints = db.Column(db.Integer)
     # foreign keys
     # relationships
-    index_components = db.relationship('IndexComponent', back_populates='index')
+    index_components = db.relationship('IndexComponent', cascade="all, delete-orphan", back_populates='index')
     results = db.relationship('Result', back_populates='index')
 
 
@@ -143,7 +143,7 @@ class IndexComponent(db.Model):
     index_name = db.Column(db.String(256), db.ForeignKey('index.name'), nullable=False, index=True)
     # relationships
     index = db.relationship('Index', back_populates='index_components')
-    index_sub_components = db.relationship('IndexSubComponent', back_populates='index_component')
+    index_sub_components = db.relationship('IndexSubComponent', cascade="all, delete-orphan", back_populates='index_component')
     result_components = db.relationship('ResultComponent', back_populates='index_component')
 
 

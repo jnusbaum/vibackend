@@ -2,11 +2,12 @@ import logging
 from flask import jsonify
 from flask_jwt_extended import jwt_required
 from vidb.models import Answer
+from app import db
 from app.api.views import ResultView, AnswerView
 from app.api import bp
 from app.api.errors import VI404Exception, VI403Exception
 from app.auth.auth import check_user
-
+from sqlalchemy.orm import joinedload
 
 # get answer
 @bp.route('/answers/<int:answer_id>', methods=['GET'])
@@ -14,7 +15,7 @@ from app.auth.auth import check_user
 def get_answer(answer_id):
     logging.info("in /answers/<answer_id>[GET]")
     user = check_user(('viuser',))
-    answer = Answer.query.get(answer_id)
+    answer = db.session.query(Answer).get(answer_id)
     if not answer:
         # no answer with this id
         raise VI404Exception("No Answer with specified id.")
@@ -33,7 +34,7 @@ def get_answer(answer_id):
 def get_answer_results(answer_id):
     logging.info("in /answers/<answer_id>/results[GET]")
     user = check_user(('viuser',))
-    answer = Answer.query.get(answer_id)
+    answer = db.session.query(Answer).options(joinedload(Answer.results)).get(answer_id)
     if not answer:
         # no answer with this id
         raise VI404Exception("No Answer with specified id.")

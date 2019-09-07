@@ -15,6 +15,7 @@ from app.auth.auth import check_user
 from vicalc import VICalculator
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 
 def str_to_datetime(ans: str) -> Union[datetime, None]:
     if ans:
@@ -135,7 +136,7 @@ def modify_user():
         email = credentials['email']
         if email != user.email:
             # email (primary key) is changing
-            if User.query.filter_by(email=email).exists():
+            if User.query.filter(email=email).exists():
                 # user with this email already exists
                 logging.error("user name exists")
                 raise VI400Exception("User with specified email already exists.")
@@ -170,10 +171,11 @@ def delete_user():
     logging.info("in /users[DELETE]")
     user = check_user(('viuser',))
     # logout first
-    for token in user.tokens:
-        token.revoked = True
+    # for token in user.tokens:
+    #     token.revoked = True
     # deletes ALL user data - user record, all answers and results
-    user.delete()
+    db.session.delete(user)
+    db.commit()
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully deleted user {} out".format(user.email)}]})
 
@@ -190,29 +192,24 @@ def answers_for_user():
 
     # authenticate user
     user = check_user(('viuser',))
-    # only artifacts owned by this user are ever returned
-    answers = user.answers
-
-    # this parameter can be a question name or not provided
-    # if not provided answers for all questions (possibly qualified by index) are returned
-    question_id = request.args.get('question')
-    if question_id:
-        question = Question.query.get(question_id)
-        if not question:
-            raise VI404Exception("No Question with the specified id was found.")
-        answers = answers.filter(lambda a: a.question == question)
 
     # get index
     idx = Index.query.get(bp.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
-    answers = answers.filter(lambda a: idx in a.indexes)
+
+    answers = db.session.query(Answer).join(Result).filter(Answer.user_id == user.id).filter(Result.index_name == idx.name)
+    # this parameter can be a question name or not provided
+    # if not provided answers for all questions (possibly qualified by index) are returned
+    question_name = request.args.get('question')
+    if question_name:
+        answers = answers.filter(Answer.question_name == question_name)
 
     # this parameter can be a datetime string or not provided
     # pretty much required for useful answers unless question is specified
     aod = request.args.get('as-of-time', type=str_to_datetime)
     if aod:
-        answers = answers.filter(lambda a: a.time_received <= aod).order_by(Answer.question, desc(Answer.time_received))
+        answers = answers.filter(Answer.time_received <= aod).order_by(Answer.question_name, func.desc(Answer.time_received))
         manswers = {}
         # assume current answers are ordered by question and time received descending
         for answer in answers:
@@ -339,7 +336,7 @@ def results_for_user():
     aod = request.args.get('as-of-time', type=str_to_datetime, default=trecv)
     numpts = request.args.get('numpts', type=int, default=1)
     results = results.filter(lambda r: r.index == idx and r.time_generated <= aod).order_by(
-        lambda r: desc(r.time_generated))[:numpts]
+        lambda r: func.desc(r.time_generated))[:numpts]
     ret_results = [ResultView.render(r) for r in results]
     rresults = {'count': len(ret_results), 'data': ret_results}
     return jsonify(rresults)
@@ -380,7 +377,7 @@ def create_index_for_user():
         # get the latest answer for this question and user
         lanswers = question.answers.filter(
             lambda a: a.user == user and a.time_received <= aod).order_by(
-            lambda a: desc(a.time_received))[:1]
+            lambda a: func.desc(a.time_received))[:1]
         if lanswers:
             found_at_least_one = True
             answers[question.name] = lanswers[0]
@@ -463,7 +460,7 @@ def get_recommendations_for_result(component_name):
         logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
         results = results.filter(
             lambda r: r.time_generated <= aod).order_by(
-            lambda r: desc(r.time_generated))[:1]
+            lambda r: func.desc(r.time_generated))[:1]
         result = results[0]
         if not result:
             # user has no results

@@ -30,7 +30,7 @@ def reset_password_start():
         logging.error("reset_password: incorrect input - no url")
         raise VI400Exception("Please provide url.")
     # lookup email in user db
-    user = User.query.filter_by(email=email).one_or_none()
+    user = User.query.filter(email=email).one_or_none()
     if not user:
         logging.error("reset_password: email %s not found", email)
         raise VI404Exception("User not found.")

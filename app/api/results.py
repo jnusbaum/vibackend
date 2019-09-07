@@ -1,14 +1,13 @@
 import logging
-import datetime
+from datetime import datetime, date, timedelta
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
-from vidb.models import User, Result, ResultComponent
+from vidb.models import User, Result, ResultComponent, IndexComponent
 from app import db
 from app.api.views import ResultView, ResultComponentView, AnswerView
 from app.api import bp
 from app.api.errors import VI404Exception, VI403Exception
 from app.auth.auth import check_user
-from sqlalchemy.sql.expression import between
 from sqlalchemy import func
 
 # get result
@@ -84,101 +83,55 @@ def get_result_answers(result_id):
 @jwt_required
 def get_statistics():
     logging.info("in /statistics[GET]")
-    trecv = datetime.datetime.utcnow()
-    td = datetime.date.today()
+    trecv = datetime.utcnow()
+    td = date.today()
     # authenticate user
-    check_user(('viuser',))
+    user = check_user(('viuser',))
 
     agerange = request.args.get('agerange')
     gender = request.args.get('gender')
     region = request.args.get('region')
 
+    result = None
+    vgs = db.session.query(func.avg(Result.points), func.avg(Result.maxforanswered)).join(User)
+    if gender:
+        vgs = vgs.filter(User.gender == gender)
     if agerange:
-        if gender:
-            # age range is string like "x-y"
-            ages = agerange.split('-')
-            dplus = td - datetime.timedelta(days=int(ages[0]) * 365)
-            dminus = td - datetime.timedelta(days=int(ages[1]) * 365)
-            vgs = db.session.query(func.avg(Result.points), func.avg(Result.maxforanswered)).join(User)
-            vgs = vgs.filter(User.gender == 'Male').filter(User.birth_date.between(dminus, dplus))
-            vgs = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(Result.user_id == User.id).correlate(User))
-        else:
-            # age range is string like "x-y"
-            ages = agerange.split('-')
-            dplus = td - datetime.timedelta(days=int(ages[0]) * 365)
-            dminus = td - datetime.timedelta(days=int(ages[1]) * 365)
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u
-                         and between(u.birth_date, dminus, dplus)
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-    else:
-        if gender:
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u and u.gender == gender
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-        else:
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-
-    if vgs:
+        # age range is string like "x-y"
+        ages = agerange.split('-')
+        dplus = td - timedelta(days=int(ages[0]) * 365)
+        dminus = td - timedelta(days=int(ages[1]) * 365)
+        vgs = vgs.filter(User.birth_date.between(dminus, dplus))
+    vg = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(
+        Result.user_id == User.id).correlate(User)).first()
+    if vg:
         result = {
             'type': 'Result',
             'attributes': {
-                'maxforanswered': vgs[0][2],
+                'maxforanswered': vg[1],
                 'maxpoints': 1000,
                 'name': 'Vitality Index',
-                'points': vgs[0][1],
+                'points': vg[0],
                 'time_generated': trecv.strftime("%Y-%m-%d-%H-%M-%S"),
                 'result_components': []
             }
         }
 
+        vgs = db.session.query(IndexComponent.name, func.avg(ResultComponent.points),
+                            func.avg(ResultComponent.maxforanswered)).join(Result).join(User).join(
+            IndexComponent).group_by(IndexComponent.name)
         if agerange:
-            if gender:
-                # age range is string like "x-y"
-                ages = agerange.split('-')
-                dplus = td - datetime.timedelta(days=int(ages[0]) * 365)
-                dminus = td - datetime.timedelta(days=int(ages[1]) * 365)
-                # noinspection PyTypeChecker
-                vgs = db.session.query(ResultComponent).join(User).filter_by(ResultComponent.gender == User.gender)
-                vgs = vgs.filter_by(between(User.birth_date, dminus, dplus))
-                for vg in vgs:
-                    select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u and u.gender == gender
-                             and between(u.birth_date, dminus, dplus)
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-            else:
-                # age range is string like "x-y"
-                ages = agerange.split('-')
-                dplus = td - datetime.timedelta(days=int(ages[0]) * 365)
-                dminus = td - datetime.timedelta(days=int(ages[1]) * 365)
-                # noinspection PyTypeChecker
-                vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u
-                             and between(u.birth_date, dminus, dplus)
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-        else:
-            if gender:
-                # noinspection PyTypeChecker
-                vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u and u.gender == gender
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-            else:
-                # noinspection PyTypeChecker
-                vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
+            # age range is string like "x-y"
+            ages = agerange.split('-')
+            dplus = td - timedelta(days=int(ages[0]) * 365)
+            dminus = td - timedelta(days=int(ages[1]) * 365)
+            vgs = vgs.filter(User.birth_date.between(dminus, dplus))
+
+        if gender:
+            vgs = vgs.filter(User.gender == gender)
+
+        vgs = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(
+            Result.user_id == User.id).correlate(User))
 
         for vg in vgs:
             rc = {
