@@ -438,8 +438,9 @@ def get_recommendations_for_result(component_name):
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
-    results = db.session.query(Result).joinfilter(Result.user_id == user.id).filter(Result.index_name == idx.name)
-    result = results.filter(Result.time_generated <= trecv).order_by(Result.time_generated.desc()).one_or_none()
+    results = db.session.query(Result).filter(Result.user_id == user.id).filter(Result.index_name == idx.name)
+    results = results.filter(Result.time_generated <= trecv).order_by(Result.time_generated.desc()).limit(1)
+    result = results.first()
     if not result:
         # user has no results
         logging.error("User has no results meeting the criteria.")
@@ -451,24 +452,19 @@ def get_recommendations_for_result(component_name):
     # We pick the three worst and provide recommendations for those
 
     # get specified component
-    component = None
-    for c in result.result_components:
-        name = db.session.query(IndexComponent.name).filter(IndexComponent.name == component.indexcomponent_name).scalar()
-        if name == component_name:
-            component = c
-            break
-
+    components = db.session.query(ResultComponent).filter(ResultComponent.result_id == result.id)
+    components = components.filter(ResultComponent.indexcomponent_name == component_name)
+    component = components.one_or_none()
     if not component:
         # component name in URL not correct
         logging.error("in recommendations - invalid category specified, %s", component_name)
         raise VI404Exception("Invalid category specified, %s" % component_name)
 
-    aratio = component.maxforanswered / component.maxpoints
-    logging.info("get_recommendations: found component %s with aratio %f for %s", component.name, aratio, user.email)
+    aratio = component.maxforanswered / component.index_component.maxpoints
+    logging.info("get_recommendations: found component %s with aratio %f for %s", component.indexcomponent_name, aratio, user.email)
     if aratio < .5:
         # answer more questions
-        logging.info("get_recommendations: generating recommendation for %s, with score %f", component_name,
-                                                                           component.maxforanswered / component.maxpoints)
+        logging.info("get_recommendations: generating recommendation for %s", component_name)
         recommendations.append({'type': 'Recommendation',
                                 'component': component_name,
                                 'text': 'One of the best ways to increase your Vitality Index score and make it more accurate is to answer more questions'})
