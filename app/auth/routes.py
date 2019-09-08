@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from passlib.hash import argon2
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from flask_jwt_extended import (
     jwt_required, create_access_token,
     jwt_refresh_token_required, create_refresh_token
@@ -35,7 +35,7 @@ def reset_password_start():
         raise VI404Exception("User not found.")
     logging.info("reset_password: starting reset of password for %s", user.email)
     # generate token
-    s = URLSafeTimedSerializer(bp.config['IDANGEROUSKEY'])
+    s = URLSafeTimedSerializer(current_app.config['IDANGEROUSKEY'])
     token = s.dumps(user.id)
     # send email
     try:
@@ -62,7 +62,7 @@ def reset_password_finish():
         logging.error("reset password: incorrect input - no password")
         raise VI400Exception("Please provide password.")
     # decode token
-    s = URLSafeTimedSerializer(bp.config['IDANGEROUSKEY'])
+    s = URLSafeTimedSerializer(current_app.config['IDANGEROUSKEY'])
     user_id = None
     try:
         user_id = s.loads(token, max_age=1800)

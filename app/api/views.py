@@ -10,8 +10,8 @@ class UserView:
                                 'gender': user.gender,
                                 'postal_code': user.postal_code,
                                 'role': user.role,
-                                'last_login': user.last_login.strftime("%Y-%m-%d-%H-%M-%S"),
-                                'last_notification': user.last_notification.strftime("%Y-%m-%d-%H-%M-%S")
+                                'last_login': user.last_login.strftime("%Y-%m-%d-%H-%M-%S") if user.last_login else None,
+                                'last_notification': user.last_notification.strftime("%Y-%m-%d-%H-%M-%S") if user.last_notification else None
                                 },
                  'id': str(user.id),
                  'type': 'User',

@@ -44,7 +44,7 @@ def is_token_revoked(decoded_token) -> bool:
     it was created.
     """
     jti = decoded_token['jti']
-    token = Token.query.get(jti=jti)
+    token = db.session.query(Token).filter(Token.jti == jti).one_or_none()
     if token:
         return token.revoked
     else:

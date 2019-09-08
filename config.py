@@ -3,7 +3,7 @@ import os
 class Config(object):
     SECRET_KEY = os.environ.get('FLASKKEY') or 'you-will-never-guess'
     LOGLEVEL = os.environ.get('LOGLEVEL') or 'INFO'
-    LOGNAME = os.environ.get('LOGNAME') or "viservice.log"
+    LOGFILE = os.environ.get('LOGFILE') or "viservice.log"
     LOGDIR = os.environ.get('LOGDIR') or "./log/"
     JWT_BLACKLIST_ENABLED = True
     JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']

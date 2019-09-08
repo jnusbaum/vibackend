@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 import pprint
-from flask import jsonify, request
+from flask import jsonify, request, current_app
 from flask_jwt_extended import jwt_required
 from passlib.hash import argon2
 from typing import Union
@@ -14,7 +14,8 @@ from app.auth.auth import check_user
 from vicalc import VICalculator
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func
+from sqlalchemy import func, cast
+
 
 def str_to_datetime(ans: str) -> Union[datetime, None]:
     if ans:
@@ -171,7 +172,7 @@ def delete_user():
     user = check_user(('viuser',))
     # deletes ALL user data - user record, all answers and results
     db.session.delete(user)
-    db.commit()
+    db.session.commit()
 
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully deleted user {} out".format(user.email)}]})
@@ -191,11 +192,11 @@ def answers_for_user():
     user = check_user(('viuser',))
 
     # get index
-    idx = db.session.query(Index).get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(current_app.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
-    answers = db.session.query(Answer).join(Result).filter(Answer.user_id == user.id).filter(Result.index_name == idx.name)
+    answers = db.session.query(Answer).join((Result, Answer.results)).filter(Answer.user_id == user.id).filter(Result.index_name == idx.name)
     # this parameter can be a question name or not provided
     # if not provided answers for all questions (possibly qualified by index) are returned
     question_name = request.args.get('question')
@@ -206,7 +207,7 @@ def answers_for_user():
     # pretty much required for useful answers unless question is specified
     aod = request.args.get('as-of-time', type=str_to_datetime)
     if aod:
-        answers = answers.filter(Answer.time_received <= aod).order_by(Answer.question_name, func.desc(Answer.time_received))
+        answers = answers.filter(Answer.time_received <= aod).order_by(Answer.question_name, Answer.time_received.desc())
         manswers = {}
         # assume current answers are ordered by question and time received descending
         for answer in answers:
@@ -248,12 +249,9 @@ def add_answers_for_user():
         raise VI400Exception("No answers supplied.")
 
     # get index
-    idx = db.session.query(Index).get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(current_app.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
-
-    # load the components
-    idx.index_components.load()
 
     ret_answers = []
     for question_name in answers.keys():
@@ -261,12 +259,10 @@ def add_answers_for_user():
         # empty answers are not saved
         # all answers are strings so this tests for empty string or None
         if answers[question_name]:
-            question = Question.query.get(question_name)
+            question = db.session.query(Question).get(question_name)
             if not question:
                 # warning - answer for question that does not exist
                 raise VI404Exception("No Question with the specified id was found.")
-            # load related sub components
-            question.index_sub_components.load()
 
             # create Answer
             answer = Answer(question=question, time_received=trecv, answer=answers[question_name], user=user)
@@ -289,7 +285,7 @@ def answer_counts_for_user():
     user = check_user(('viuser',))
 
     # get index
-    idx = db.session.query(Index).get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(current_app.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
@@ -323,7 +319,7 @@ def results_for_user():
     results = user.results
 
     # get index
-    idx = db.session.query(Index).get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(current_app.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
@@ -361,7 +357,7 @@ def create_index_for_user():
     aod = trecv
 
     # get index
-    idx = db.session.query(Index).get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(current_app.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
@@ -431,83 +427,66 @@ def create_index_for_user():
 @jwt_required
 def get_recommendations_for_result(component_name):
     logging.info("in /users/recommendations/%s[GET]", component_name)
+
     # authenticate user
     user = check_user(('viuser',))
 
+    trecv = datetime.utcnow().replace(microsecond=0)
     recommendations = []
 
-    # get latest result
-    result = None
-    results = user.results
-
-    idx = db.session.query(Index).get(bp.config['INDEX'])
+    idx = db.session.query(Index).get(current_app.config['INDEX'])
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
-    results = results.filter(lambda r: r.index == idx)
 
-    if results:
-        logging.info("get_recommendations: found results for %s", user.email)
-        # this parameter can be a datetime string or not provided
-        # pretty much required for useful answers unless question is specified
-        aod = request.args.get('as-of-time', type=str_to_datetime)
-        if not aod:
-            # use current time
-            aod = datetime.utcnow().replace(microsecond=0)
-        logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
-        results = results.filter(
-            lambda r: r.time_generated <= aod).order_by(
-            lambda r: func.desc(r.time_generated))[:1]
-        result = results[0]
-        if not result:
-            # user has no results
-            logging.error("User has no results meeting the criteria.")
-            raise VI404Exception("User has no results meeting the criteria.")
+    results = db.session.query(Result).joinfilter(Result.user_id == user.id).filter(Result.index_name == idx.name)
+    result = results.filter(Result.time_generated <= trecv).order_by(Result.time_generated.desc()).one_or_none()
+    if not result:
+        # user has no results
+        logging.error("User has no results meeting the criteria.")
+        raise VI404Exception("User has no results meeting the criteria.")
 
-        # so here we generate a block of text representing our recommendations for the given component of the latest result
-        # first we check for unanswered questions - if above a certain threshold recommend answering more questions
-        # then we look at each subcomponent and filter for those where points are below a certain threshold of maxanswered
-        # We pick the three worst and provide recommendations for those
+    # so here we generate a block of text representing our recommendations for the given component of the latest result
+    # first we check for unanswered questions - if above a certain threshold recommend answering more questions
+    # then we look at each subcomponent and filter for those where points are below a certain threshold of maxanswered
+    # We pick the three worst and provide recommendations for those
 
-        # get specified component
-        components = result.result_components.select(lambda c: c.name == component_name)[:]
-        if not components:
-            # component name in URL not correct
-            logging.error("in recommendations - invalid category specified, %s", component_name)
-            raise VI404Exception("Invalid category specified, %s" % component_name)
-        component = components[0]
+    # get specified component
+    component = None
+    for c in result.result_components:
+        name = db.session.query(IndexComponent.name).filter(IndexComponent.name == component.indexcomponent_name).scalar()
+        if name == component_name:
+            component = c
+            break
 
-        aratio = component.maxforanswered / component.maxpoints
-        logging.info("get_recommendations: found component %s with aratio %f for %s", component.name, aratio, user.email)
-        if aratio < .5:
-            # answer more questions
-            logging.info("get_recommendations: generating recommendation for %s, with score %f", component.name,
-                                                                               component.maxforanswered / component.maxpoints)
-            recommendations.append({'type': 'Recommendation',
-                                    'component': component.name,
-                                    'text': 'One of the best ways to increase your Vitality Index score and make it more accurate is to answer more questions'})
+    if not component:
+        # component name in URL not correct
+        logging.error("in recommendations - invalid category specified, %s", component_name)
+        raise VI404Exception("Invalid category specified, %s" % component_name)
 
-        # look at the subcomponents
-        # order them by % of maxforanswered points ascending
-        # grab worst 3
-        subs = component.result_sub_components
-        logging.info("get_recommendations: found %d sub components for %s", subs.count(), user.email)
-        subs = subs.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: float(s.points) / float(s.maxforanswered))
-        count = 0
-        for sub in subs:
-            if count >= 3:
-                # get 3 recommendations
-                break
-            logging.info(
-                "get_recommendations: generating recommendation for %s, with score %f", sub.name, sub.points / sub.maxforanswered)
-            if sub.index_sub_component.recommendation:
-                logging.info(
-                    "get_recommendations: adding recommendation for %s", sub.name)
-                recommendations.append({'type': 'Recommendation',
-                                    'component': component.name,
-                                    'text': sub.index_sub_component.recommendation})
-                count += 1
-            else:
-                logging.info(
-                    "get_recommendations: empty recommendation for %s", sub.name)
+    aratio = component.maxforanswered / component.maxpoints
+    logging.info("get_recommendations: found component %s with aratio %f for %s", component.name, aratio, user.email)
+    if aratio < .5:
+        # answer more questions
+        logging.info("get_recommendations: generating recommendation for %s, with score %f", component_name,
+                                                                           component.maxforanswered / component.maxpoints)
+        recommendations.append({'type': 'Recommendation',
+                                'component': component_name,
+                                'text': 'One of the best ways to increase your Vitality Index score and make it more accurate is to answer more questions'})
+
+    # look at the subcomponents
+    # order them by % of maxforanswered points ascending
+    # grab worst 3
+    subs = db.session.query(ResultSubComponent, IndexSubComponent).filter(ResultSubComponent.resultcomponent_id == component.id)
+    subs = subs.filter(IndexSubComponent.recommendation != '')
+    subs = subs.filter(ResultSubComponent.maxforanswered > 0)
+    subs = subs.order_by(cast(ResultSubComponent.points, db.Float) / cast(ResultSubComponent.maxforanswered, db.Float))
+    subs = subs.limit(3)
+    for sub in subs:
+        rsub = sub[0]
+        isub = sub[1]
+        logging.info("get_recommendations: adding recommendation for %s", isub.name)
+        recommendations.append({'type': 'Recommendation',
+                                'component': component_name,
+                                'text': isub.recommendation})
 
     return jsonify({'count': len(recommendations), 'data': recommendations})
