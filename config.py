@@ -16,7 +16,7 @@ class Config(object):
                                                                                                   host=DBHOST,
                                                                                                   db=DATABASE)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
+    SQLALCHEMY_ENGINE_OPTIONS = {'echo': True}
     # itsdangerous, jwt
     JWT_SECRET_KEY = os.environ.get('JWTKEY') or 'you-will-never-guess'
     IDANGEROUSKEY = os.environ.get('ITSDANGEROUSKEY') or 'you-will-never-guess'
