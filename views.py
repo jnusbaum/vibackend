@@ -28,7 +28,8 @@ class AnswerView:
     @classmethod
     def render(cls, answer: Answer):
         dself = {'attributes': {'time_received': answer.time_received.strftime("%Y-%m-%d-%H-%M-%S"),
-                                'answer': answer.answer
+                                'answer': answer.answer,
+                                'question': answer.question_name
                                 },
                  'id': str(answer.id),
                  'type': 'Answer',
@@ -46,7 +47,7 @@ class ResultComponentView:
     def render(cls, rc: ResultComponent):
         dself = {'attributes': {'points': rc.points,
                                 'maxforanswered': rc.maxforanswered,
-                                'name': rc.result.index_name,
+                                'name': rc.indexcomponent_name,
                                 'maxpoints': rc.index_component.maxpoints
                                 },
                  'id': str(rc.id),

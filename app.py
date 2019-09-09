@@ -304,7 +304,7 @@ def login():
     password = request.json.get('password', None)
     user = auth_user(email, password)
     logging.info("login: logging in %s", user.email)
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.utcnow().replace(microsecond=0)
     # Store the tokens in our store with a status of not currently revoked.
     access_token = create_access_token(identity={'id': user.id}, fresh=True)
     refresh_token = create_refresh_token(identity={'id': user.id})
@@ -327,7 +327,7 @@ def refresh():
     logging.info("in /refresh[POST]")
     user = check_user(('vivendor', 'viuser'))
     logging.info("refresh: refreshing %s", user.email)
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.utcnow().replace(microsecond=0)
     new_token = create_access_token(identity={'id': user.id}, fresh=True)
     add_token_to_database(new_token, user)
 
@@ -797,7 +797,8 @@ def get_recommendations_for_result(component_name):
     # We pick the three worst and provide recommendations for those
 
     # get specified component
-    components = db.session.query(ResultComponent).filter(ResultComponent.result_id == result.id)
+    components = db.session.query(ResultComponent).options(joinedload(ResultComponent.index_component), joinedload(ResultComponent.result_sub_components))
+    components = components.filter(ResultComponent.result_id == result.id)
     components = components.filter(ResultComponent.indexcomponent_name == component_name)
     component = components.one_or_none()
     if not component:
@@ -817,18 +818,19 @@ def get_recommendations_for_result(component_name):
     # look at the subcomponents
     # order them by % of maxforanswered points ascending
     # grab worst 3
-    subs = db.session.query(ResultSubComponent, IndexSubComponent).filter(ResultSubComponent.resultcomponent_id == component.id)
+    subs = db.session.query(ResultSubComponent).join(IndexSubComponent)
+    subs = subs.filter(ResultSubComponent.resultcomponent_id == component.id)
+    # non empty recommendation
     subs = subs.filter(IndexSubComponent.recommendation != '')
+    # some questions answered
     subs = subs.filter(ResultSubComponent.maxforanswered > 0)
     subs = subs.order_by(cast(ResultSubComponent.points, db.Float) / cast(ResultSubComponent.maxforanswered, db.Float))
     subs = subs.limit(3)
     for sub in subs:
-        rsub = sub[0]
-        isub = sub[1]
-        logging.info("get_recommendations: adding recommendation for %s", isub.name)
+        logging.info("get_recommendations: adding recommendation for %s", sub.indexsubcomponent_name)
         recommendations.append({'type': 'Recommendation',
                                 'component': component_name,
-                                'text': isub.recommendation})
+                                'text': sub.index_sub_component.recommendation})
 
     return jsonify({'count': len(recommendations), 'data': recommendations})
 
@@ -906,7 +908,7 @@ def get_result_answers(result_id):
 @jwt_required
 def get_statistics():
     logging.info("in /statistics[GET]")
-    trecv = datetime.utcnow()
+    trecv = datetime.utcnow().replace(microsecond=0)
     td = date.today()
     # authenticate user
     user = check_user(('viuser',))

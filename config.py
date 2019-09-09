@@ -8,7 +8,7 @@ class Config(object):
     JWT_BLACKLIST_ENABLED = True
     JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']
     DBHOST = os.environ.get('DBHOST') or '192.168.0.134'
-    DATABASE = os.environ.get('DATABASE') or 'vibackend'
+    DATABASE = os.environ.get('DATABASE') or 'viback'
     DBUSER = os.environ.get('DBUSER') or 'vi'
     DBPWD = os.environ.get('DBPWD') or 'v1t@l1ty'
     SQLALCHEMY_DATABASE_URI = 'mssql+pymssql://{user}:{password}@{host}/{db}?charset=utf8'.format(user=DBUSER,
