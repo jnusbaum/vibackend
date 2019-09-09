@@ -39,7 +39,7 @@ from flask_jwt_extended import (
     JWTManager, jwt_required, jwt_refresh_token_required, decode_token, get_jwt_identity, 
     create_access_token, create_refresh_token
 )
-from sqlalchemy import func, cast
+from sqlalchemy import func, cast, literal
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 from vidb.models import db, User, Token, Question, Answer, Index, Result, ResultComponent, ResultSubComponent, IndexComponent, IndexSubComponent
@@ -471,7 +471,7 @@ def modify_user():
         if email != user.email:
             # email (primary key) is changing
             q = db.session.query(User).filter(User.email == email)
-            if db.session.query(q.exists()):
+            if db.session.query(literal(True)).filter(q.exists()).scalar():
                 # user with this email already exists
                 logging.error("user name exists")
                 raise VI400Exception("User with specified email already exists.")
@@ -531,18 +531,24 @@ def answers_for_user():
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
-    answers = db.session.query(Answer).join((Result, Answer.results)).filter(Answer.user_id == user.id).filter(Result.index_name == idx.name)
+    answers = db.session.query(Answer).join(Question)
+    answers = answers.join((IndexSubComponent, Question.index_sub_components)).join(IndexComponent)
+    answers = answers.filter(Answer.user_id == user.id).filter(IndexComponent.index_name == idx.name)
     # this parameter can be a question name or not provided
     # if not provided answers for all questions (possibly qualified by index) are returned
     question_name = request.args.get('question')
     if question_name:
-        answers = answers.filter(Answer.question_name == question_name)
+        question = None
+        question = db.session.query(Question).get(question_name)
+        if not question:
+            raise VI404Exception("No Question with the specified id was found.")
+        answers = answers.filter(Question.name == question_name)
 
     # this parameter can be a datetime string or not provided
     # pretty much required for useful answers unless question is specified
     aod = request.args.get('as-of-time', type=str_to_datetime)
     if aod:
-        answers = answers.filter(Answer.time_received <= aod).order_by(Answer.question_name, Answer.time_received.desc()).all()
+        answers = answers.filter(Answer.time_received <= aod).order_by(Question.name, Answer.time_received.desc()).all()
         manswers = {}
         # assume current answers are ordered by question and time received descending
         for answer in answers:
