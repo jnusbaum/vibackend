@@ -514,10 +514,12 @@ def delete_user():
 
 
 # get answer set for user
+# default get the latest answer for user for each question in index
 # filters as url parameters - as-of-time, question
 # as-of-time - latest answer for each question before this time
-# question - all answers for question
+# question - all answers for question ordered by time received desc
 # question and as-of-time - latest answer for question before time
+# TODO make function match description
 @app.route('/users/answers', methods=['GET'])
 @jwt_required
 def answers_for_user():
@@ -543,12 +545,14 @@ def answers_for_user():
         if not question:
             raise VI404Exception("No Question with the specified id was found.")
         answers = answers.filter(Question.name == question_name)
-
+    else:
+        answers = answers.order_by(Question.name)
+    answers = answers.order_by(Answer.time_received.desc())
     # this parameter can be a datetime string or not provided
     # pretty much required for useful answers unless question is specified
     aod = request.args.get('as-of-time', type=str_to_datetime)
     if aod:
-        answers = answers.filter(Answer.time_received <= aod).order_by(Question.name, Answer.time_received.desc()).all()
+        answers = answers.filter(Answer.time_received <= aod).all()
         manswers = {}
         # assume current answers are ordered by question and time received descending
         for answer in answers:
