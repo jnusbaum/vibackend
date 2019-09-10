@@ -1,4 +1,5 @@
 import logging
+import pprint
 from typing import List, Dict, Union
 from . import Exercise
 from . import Medical
@@ -34,5 +35,6 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
         score['MAXFORANSWERED'] = score['MAXFORANSWERED'] + cscore['MAXFORANSWERED']
 
     logging.debug('vitality index = %s', score['INDEX'])
+    logging.debug('vitality index = %s', pprint.pformat(score))
     return score
 

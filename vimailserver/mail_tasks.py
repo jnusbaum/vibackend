@@ -261,7 +261,7 @@ def send_welcome(user_id: int):
     msg['To'] = you
 
     sendmail(you, msg)
-    user.last_notification = datetime.utcnow()
+    user.last_notification = datetime.utcnow().replace(microsecond=0)
 
 
 @celery.task(name='mail_tasks.send_reminder')

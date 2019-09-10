@@ -45,7 +45,7 @@ from flask_jwt_extended import (
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 # db interface
 # noinspection PyUnresolvedReferences
-from pony.orm import avg, max, between, desc
+from pony.orm import avg, max, between, desc, Set
 
 # VI algorithm
 from vicalc import VICalculator
@@ -302,7 +302,7 @@ def login():
     password = request.json.get('password', None)
     user = auth_user(email, password)
     logging.info("login: logging in %s", user.email)
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.utcnow().replace(microsecond=0)
     # Store the tokens in our store with a status of not currently revoked.
     access_token = create_access_token(identity={'id': user.id}, fresh=True)
     refresh_token = create_refresh_token(identity={'id': user.id})
@@ -326,7 +326,7 @@ def refresh():
     logging.info("in /refresh[POST]")
     user = check_user(('vivendor', 'viuser'))
     logging.info("refresh: refreshing %s", user.email)
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.utcnow().replace(microsecond=0)
     new_token = create_access_token(identity={'id': user.id}, fresh=True)
     add_token_to_database(new_token, user)
     ret = {'count': 1, 'data': [{'type': 'AccessToken', 'access_token': new_token, 'refresh_token': None}]}
@@ -512,10 +512,12 @@ def delete_user():
 
 
 # get answer set for user
+# default get the latest answer for user for each question in index
 # filters as url parameters - as-of-time, question
 # as-of-time - latest answer for each question before this time
-# question - all answers for question
+# question - latest answer for question
 # question and as-of-time - latest answer for question before time
+# TODO make function match description
 @app.route('/users/answers', methods=['GET'])
 @db_session
 @jwt_required
@@ -524,39 +526,49 @@ def answers_for_user():
 
     # authenticate user
     user = check_user(('viuser',))
-    # only artifacts owned by this user are ever returned
-    answers = user.answers
 
     # this parameter can be a question name or not provided
     # if not provided answers for all questions (possibly qualified by index) are returned
     question_id = request.args.get('question')
+    # this parameter can be a datetime string or not provided
+    # pretty much required for useful answers unless question is specified
+    aod = request.args.get('as-of-time', type=str_to_datetime)
+
     if question_id:
-        question = None
         try:
             question = Question[question_id]
         except ObjectNotFound:
             raise VI404Exception("No Question with the specified id was found.")
-        answers = answers.filter(lambda a: a.question == question)
-
-    idx = None
-    try:
-        # get index
-        idx = Index[index_id]
-    except ObjectNotFound:
-        raise VI404Exception("No Index with the specified id was found.")
-    answers = answers.filter(lambda a: idx in a.indexes)
-
-    # this parameter can be a datetime string or not provided
-    # pretty much required for useful answers unless question is specified
-    aod = request.args.get('as-of-time', type=str_to_datetime)
-    if aod:
-        answers = answers.filter(lambda a: a.time_received <= aod).order_by(Answer.question, desc(Answer.time_received))
-        manswers = {}
-        # assume current answers are ordered by question and time received descending
-        for answer in answers:
-            if answer.question not in manswers:
-                manswers[answer.question] = answer
-        answers = manswers.values()
+        answers = question.answers.filter(lambda a: a.user == user and a.question == question)
+        if aod:
+            # question and aod
+            try:
+                question = Question[question_id]
+            except ObjectNotFound:
+                raise VI404Exception("No Question with the specified id was found.")
+            answers = answers.filter(lambda a: a.time_received <= aod)
+        answers = answers.order_by(lambda a: desc(a.time_received))[:1]
+    else:
+        # not question id
+        idx = None
+        try:
+            # get index
+            idx = Index[index_id]
+        except ObjectNotFound:
+            raise VI404Exception("No Index with the specified id was found.")
+        # sort the questions by name
+        # questions = sorted(list(idx.questions._items_.keys()), key=lambda q: q.name)
+        questions = sorted(idx.questions, key=lambda q: q.name)
+        manswers = []
+        for question in questions:
+            answers = question.answers.filter(lambda a: a.user == user)
+            if aod:
+                # map questions by name and create null answer for each question
+                # get the latest answer for this question and user
+                answers = answers.filter(lambda a: a.time_received <= aod)
+            answers = answers.order_by(lambda a: desc(a.time_received))[:1]
+            manswers.append(answers[0])
+        answers = manswers
 
     logging.info("answers_for_user: answers fetched for %s", user.email)
     ret_answers = {'count': len(answers), 'data': [AnswerView.render(a) for a in answers]}
@@ -1026,7 +1038,7 @@ def get_result_answers(result_id):
 @jwt_required
 def get_statistics():
     logging.info("in /statistics[GET]")
-    trecv = datetime.utcnow()
+    trecv = datetime.utcnow().replace(microsecond=0)
     # authenticate user
     user = check_user(('viuser',))
 
