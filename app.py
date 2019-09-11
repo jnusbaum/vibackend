@@ -32,9 +32,7 @@ from datetime import date, timedelta, timezone
 from passlib.hash import argon2
 from typing import Tuple, Union
 from flask import jsonify, request
-from flask_migrate import Migrate
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
-
 from flask_jwt_extended import (
     JWTManager, jwt_required, jwt_refresh_token_required, decode_token, get_jwt_identity, 
     create_access_token, create_refresh_token
@@ -42,16 +40,15 @@ from flask_jwt_extended import (
 from sqlalchemy import func, cast, literal
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
-from vidb.models import db, User, Token, Question, Answer, Index, Result, ResultComponent, ResultSubComponent, IndexComponent, IndexSubComponent
+from vidb.models import User, Token, Question, Answer, Index, Result, ResultComponent, ResultSubComponent, IndexComponent, IndexSubComponent
 from views import UserView, AnswerView, ResultView, ResultComponentView
 from vicalc import VICalculator
 from vimailserver import mail_tasks
+from flask_sqlalchemy import SQLAlchemy
 
 
-
-migrate = Migrate(app, db)
+db = SQLAlchemy(app)
 jwt = JWTManager(app)
-db.init_app(app)
 
 class VIServiceException(Exception):
     def __init__(self, message, status_code):
