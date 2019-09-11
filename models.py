@@ -1,146 +1,165 @@
-from datetime import datetime, date
-from pony.orm import *
+from sqlalchemy import Column, Integer, String, Date, DateTime, Boolean, ForeignKey, Index, Table
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
 
-db = Database()
+Base = declarative_base()
 
+class User(Base):
+    __tablename__ = 'user'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(256), nullable=False, unique=True)
+    pword = Column(String(256), nullable=False)
+    first_name = Column(String(256), nullable=False)
+    birth_date = Column(Date, nullable=False, index=True)
+    gender = Column(String(8), nullable=False, default='Other', index=True)
+    postal_code = Column(String(256), nullable=False, )
+    role = Column(String(32), nullable=False, default='viuser')  # one of vivendor, viuser
+    last_login = Column(DateTime, index=True)
+    last_notification = Column(DateTime, index=True)
+    # foreign keys
+    # relationships
+    results = relationship('Result', cascade="all, delete-orphan", back_populates='user', order_by="Result.time_generated.desc()")
+    answers = relationship('Answer', cascade="all, delete-orphan", back_populates='user', order_by="Answer.time_received.desc(), Answer.question_name")
+    tokens = relationship('Token', cascade="all, delete-orphan", back_populates='user')
 
-# vivendors can create new users and login users, cannot look at any data
-# viuser can create and look at their data
-class User(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    email = Required(str, unique=True)
-    pword = Required(LongStr)
-    results = Set('Result')
-    answers = Set('Answer')
-    tokens = Set('Token')
-    first_name = Required(str)
-    birth_date = Required(date, index=True)
-    gender = Required(str, default='Other', index=True)
-    postal_code = Required(str)
-    role = Required(str, default='viuser')  # one of vivendor, viuser
-    last_login = Optional(datetime, index=True)
-    last_notification = Optional(datetime, index=True)
-    composite_index(email, pword)
-
-
-class Token(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    jti = Required(LongStr, index=True)
-    token_type = Required(str)
-    user = Required(User, index=True)
-    revoked = Required(bool)
-    expires = Required(datetime)
+# indexes
+Index('user_idx_email_pword', User.email, User.pword)
 
 
-class Question(db.Entity):
-    name = PrimaryKey(str)
-    answers = Set('Answer')
-    info = Required(LongStr, default="not yet")
-    index_sub_components = Set('IndexSubComponent')
-    qtext = Required(LongStr, default="not yet")
-
-    @property
-    def indexes(self):
-        return self.index_sub_components.index_component.index
-
-
-class Answer(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    results = Set('Result')
-    question = Required(Question)
-    time_received = Required(datetime)
-    answer = Required(str)
-    user = Required(User)
-    composite_index(user, question, time_received)
-
-    @property
-    def indexes(self):
-        return self.question.indexes
+class Token(Base):
+    __tablename__ = 'token'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    jti = Column(String(256), nullable=False, index=True)
+    token_type = Column(String(10), nullable=False)
+    revoked = Column(Boolean, nullable=False)
+    expires = Column(DateTime, nullable=False)
+    # foreign keys
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
+    # relationships
+    user = relationship('User', back_populates='tokens')
 
 
-class Result(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    result_components = Set('ResultComponent')
-    answers = Set(Answer)
-    time_generated = Required(datetime)
-    points = Required(int)
-    maxforanswered = Required(int)
-    index = Required('Index')
-    user = Required(User)
-    composite_index(user, index, time_generated)
-
-    @property
-    def name(self):
-        return self.index.name
-
-    @property
-    def maxpoints(self):
-        return self.index.maxpoints
+indexsubcomponent_question = Table('indexsubcomponent_question',
+                                      Base.metadata,
+                                      Column('indexsubcomponent_name', String(256), ForeignKey('indexsubcomponent.name'), nullable=False, index=True),
+                                      Column('question_name', String(256), ForeignKey('question.name'), nullable=False, index=True)
+                                      )
 
 
-class ResultComponent(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    result = Required(Result)
-    result_sub_components = Set('ResultSubComponent')
-    points = Required(int)
-    maxforanswered = Required(int)
-    index_component = Required('IndexComponent')
-
-    @property
-    def name(self):
-        return self.index_component.name
-
-    @property
-    def maxpoints(self):
-        return self.index_component.maxpoints
+class Question(Base):
+    __tablename__ = 'question'
+    name = Column(String(256), primary_key=True)
+    info = Column(String(2048), nullable=False, default='not yet')
+    qtext = Column(String(2048), nullable=False, default='not yet')
+    # foreign keys
+    # relationships
+    index_sub_components = relationship('IndexSubComponent', secondary=indexsubcomponent_question, back_populates='questions')
+    answers = relationship('Answer', back_populates='question', order_by="Answer.user_id, Answer.time_received.desc(), Answer.question_name")
 
 
-class ResultSubComponent(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    result_component = Required(ResultComponent)
-    points = Required(int)
-    maxforanswered = Required(int)
-    index_sub_component = Required('IndexSubComponent')
-
-    @property
-    def name(self):
-        return self.index_sub_component.name
-
-    @property
-    def maxpoints(self):
-        return self.index_sub_component.maxpoints
+answer_result = Table('answer_result',
+                      Base.metadata,
+                      Column('answer_id', Integer, ForeignKey('answer.id'), index=True),
+                      Column('result_id', Integer, ForeignKey('result.id'), index=True)
+                      )
 
 
-class Index(db.Entity):
-    name = PrimaryKey(str)
-    maxpoints = Required(int)
-    index_components = Set('IndexComponent')
-    results = Set(Result)
+class Answer(Base):
+    __tablename__ = 'answer'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    time_received = Column(DateTime, nullable=False)
+    answer = Column(String(256), nullable=False)
+    # foreign keys
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
+    question_name = Column(String(256), ForeignKey('question.name'), nullable=False, index=True)
+    # relationships
+    user = relationship('User', back_populates='answers')
+    question = relationship('Question', back_populates='answers')
+    results = relationship('Result', secondary=answer_result, back_populates='answers')
 
-    @property
-    def questions(self):
-        return self.index_components.index_sub_components.questions
-
-
-class IndexComponent(db.Entity):
-    name = PrimaryKey(str)
-    maxpoints = Required(int)
-    index = Required(Index)
-    index_sub_components = Set('IndexSubComponent')
-    result_components = Set(ResultComponent)
-    info = Required(LongStr)
-    recommendation = Required(LongStr)
-
-    @property
-    def questions(self):
-        return self.index_sub_components.questions
+# indexes
+Index('answer_idx_user_question_time', Answer.user_id, Answer.question_name, Answer.time_received)
 
 
-class IndexSubComponent(db.Entity):
-    name = PrimaryKey(str)
-    maxpoints = Required(int)
-    index_component = Required(IndexComponent)
-    result_sub_components = Set(ResultSubComponent)
-    info = Required(LongStr)
-    recommendation = Required(LongStr)
-    questions = Set(Question)
+class Result(Base):
+    __tablename__ = 'result'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    time_generated = Column(DateTime, nullable=False)
+    points = Column(Integer, nullable=False)
+    maxforanswered = Column(Integer, nullable=False)
+    # foreign keys
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
+    index_name = Column(String(256), ForeignKey('index.name'), nullable=False, index=True)
+    # relationships
+    user = relationship('User', back_populates='results')
+    index = relationship('Index', back_populates='results')
+    answers = relationship('Answer', secondary=answer_result, back_populates='results', order_by="Answer.time_received.desc(), Answer.question_name")
+    result_components = relationship('ResultComponent', cascade="all, delete-orphan", back_populates='result', order_by="ResultComponent.id")
+
+# indexes
+Index('result_idx_user_index_time', Result.user_id, Result.index_name, Result.time_generated)
+
+
+class ResultComponent(Base):
+    __tablename__ = 'resultcomponent'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    points = Column(Integer)
+    maxforanswered = Column(Integer)
+    # foreign keys
+    result_id = Column(Integer, ForeignKey('result.id'), nullable=False, index=True)
+    indexcomponent_name = Column(String(256), ForeignKey('indexcomponent.name'), nullable=False, index=True)
+    # relationships
+    result = relationship('Result', back_populates='result_components')
+    result_sub_components = relationship('ResultSubComponent', cascade="all, delete-orphan", back_populates='result_component', order_by="ResultSubComponent.id")
+    index_component = relationship('IndexComponent', back_populates='result_components')
+
+
+class ResultSubComponent(Base):
+    __tablename__ = 'resultsubcomponent'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    points = Column(Integer)
+    maxforanswered = Column(Integer)
+    # foreign keys
+    resultcomponent_id = Column(Integer, ForeignKey('resultcomponent.id'), nullable=False, index=True)
+    indexsubcomponent_name = Column(String(256), ForeignKey('indexsubcomponent.name'), nullable=False, index=True)
+    # relationships
+    result_component = relationship('ResultComponent', back_populates='result_sub_components')
+    index_sub_component = relationship('IndexSubComponent', back_populates='result_sub_components')
+
+
+class Index(Base):
+    __tablename__ = 'index'
+    name = Column(String(256), primary_key=True)
+    maxpoints = Column(Integer)
+    # foreign keys
+    # relationships
+    index_components = relationship('IndexComponent', cascade="all, delete-orphan", back_populates='index', order_by="IndexComponent.name")
+    results = relationship('Result', back_populates='index')
+
+
+class IndexComponent(Base):
+    __tablename__ = 'indexcomponent'
+    name = Column(String(256), primary_key=True)
+    maxpoints = Column(Integer)
+    info = Column(String(2048))
+    recommendation = Column(String(2048))
+    # foreign keys
+    index_name = Column(String(256), ForeignKey('index.name'), nullable=False, index=True)
+    # relationships
+    index = relationship('Index', back_populates='index_components')
+    index_sub_components = relationship('IndexSubComponent', cascade="all, delete-orphan", back_populates='index_component', order_by="IndexSubComponent.name")
+    result_components = relationship('ResultComponent', back_populates='index_component')
+
+
+class IndexSubComponent(Base):
+    __tablename__ = 'indexsubcomponent'
+    name = Column(String(256), primary_key=True)
+    maxpoints = Column(Integer)
+    info = Column(String(2048))
+    recommendation = Column(String(2048))
+    # foreign keys
+    indexcomponent_name = Column(String(256), ForeignKey('indexcomponent.name'), nullable=False, index=True)
+    # relationships
+    questions = relationship('Question', secondary=indexsubcomponent_question, back_populates='index_sub_components')
+    index_component = relationship('IndexComponent', back_populates='index_sub_components')
+    result_sub_components = relationship('ResultSubComponent', back_populates='index_sub_component')
