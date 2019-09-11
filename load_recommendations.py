@@ -24,8 +24,8 @@ with open('./recommendations.tsv') as csv_file:
                 with db_session:
                         component_id = row[0]
                         recommendation = row[1]
-                        if not recommendation:
-                                recommendation = "Recommendation coming soon!"
+                        if recommendation == "Recommendation coming soon!":
+                                recommendation = ""
                         print('%s -> "%s"' % (component_id, recommendation))
                         isc = IndexSubComponent[component_id]
                         isc.recommendation = recommendation

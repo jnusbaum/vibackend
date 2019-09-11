@@ -1,146 +1,163 @@
-from datetime import datetime, date
-from pony.orm import *
+from flask_sqlalchemy import SQLAlchemy
 
-db = Database()
-
-
-# vivendors can create new users and login users, cannot look at any data
-# viuser can create and look at their data
-class User(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    email = Required(str, unique=True)
-    pword = Required(LongStr)
-    results = Set('Result')
-    answers = Set('Answer')
-    tokens = Set('Token')
-    first_name = Required(str)
-    birth_date = Required(date, index=True)
-    gender = Required(str, default='Other', index=True)
-    postal_code = Required(str)
-    role = Required(str, default='viuser')  # one of vivendor, viuser
-    last_login = Optional(datetime, index=True)
-    last_notification = Optional(datetime, index=True)
-    composite_index(email, pword)
+db = SQLAlchemy()
 
 
-class Token(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    jti = Required(LongStr, index=True)
-    token_type = Required(str)
-    user = Required(User, index=True)
-    revoked = Required(bool)
-    expires = Required(datetime)
+class User(db.Model):
+    __tablename__ = 'user'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    email = db.Column(db.String(256), nullable=False, unique=True)
+    pword = db.Column(db.String(256), nullable=False)
+    first_name = db.Column(db.String(256), nullable=False)
+    birth_date = db.Column(db.Date, nullable=False, index=True)
+    gender = db.Column(db.String(8), nullable=False, default='Other', index=True)
+    postal_code = db.Column(db.String(256), nullable=False, )
+    role = db.Column(db.String(32), nullable=False, default='viuser')  # one of vivendor, viuser
+    last_login = db.Column(db.DateTime, index=True)
+    last_notification = db.Column(db.DateTime, index=True)
+    # foreign keys
+    # relationships
+    results = db.relationship('Result', cascade="all, delete-orphan", back_populates='user', order_by="Result.time_generated.desc()")
+    answers = db.relationship('Answer', cascade="all, delete-orphan", back_populates='user', order_by="Answer.time_received.desc(), Answer.question_name")
+    tokens = db.relationship('Token', cascade="all, delete-orphan", back_populates='user')
+
+# indexes
+db.Index('user_idx_email_pword', User.email, User.pword)
 
 
-class Question(db.Entity):
-    name = PrimaryKey(str)
-    answers = Set('Answer')
-    info = Required(LongStr, default="not yet")
-    index_sub_components = Set('IndexSubComponent')
-    qtext = Required(LongStr, default="not yet")
-
-    @property
-    def indexes(self):
-        return self.index_sub_components.index_component.index
-
-
-class Answer(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    results = Set('Result')
-    question = Required(Question)
-    time_received = Required(datetime)
-    answer = Required(str)
-    user = Required(User)
-    composite_index(user, question, time_received)
-
-    @property
-    def indexes(self):
-        return self.question.indexes
+class Token(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    jti = db.Column(db.String(256), nullable=False, index=True)
+    token_type = db.Column(db.String(10), nullable=False)
+    revoked = db.Column(db.Boolean, nullable=False)
+    expires = db.Column(db.DateTime, nullable=False)
+    # foreign keys
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    # relationships
+    user = db.relationship('User', back_populates='tokens')
 
 
-class Result(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    result_components = Set('ResultComponent')
-    answers = Set(Answer)
-    time_generated = Required(datetime)
-    points = Required(int)
-    maxforanswered = Required(int)
-    index = Required('Index')
-    user = Required(User)
-    composite_index(user, index, time_generated)
-
-    @property
-    def name(self):
-        return self.index.name
-
-    @property
-    def maxpoints(self):
-        return self.index.maxpoints
+indexsubcomponent_question = db.Table('indexsubcomponent_question',
+                                      db.Model.metadata,
+                                      db.Column('indexsubcomponent_name', db.String(256), db.ForeignKey('indexsubcomponent.name'), nullable=False, index=True),
+                                      db.Column('question_name', db.String(256), db.ForeignKey('question.name'), nullable=False, index=True)
+                                      )
 
 
-class ResultComponent(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    result = Required(Result)
-    result_sub_components = Set('ResultSubComponent')
-    points = Required(int)
-    maxforanswered = Required(int)
-    index_component = Required('IndexComponent')
-
-    @property
-    def name(self):
-        return self.index_component.name
-
-    @property
-    def maxpoints(self):
-        return self.index_component.maxpoints
+class Question(db.Model):
+    __tablename__ = 'question'
+    name = db.Column(db.String(256), primary_key=True)
+    info = db.Column(db.String(2048), nullable=False, default='not yet')
+    qtext = db.Column(db.String(2048), nullable=False, default='not yet')
+    # foreign keys
+    # relationships
+    index_sub_components = db.relationship('IndexSubComponent', secondary=indexsubcomponent_question, back_populates='questions')
+    answers = db.relationship('Answer', back_populates='question', order_by="Answer.user_id, Answer.time_received.desc(), Answer.question_name")
 
 
-class ResultSubComponent(db.Entity):
-    id = PrimaryKey(int, auto=True)
-    result_component = Required(ResultComponent)
-    points = Required(int)
-    maxforanswered = Required(int)
-    index_sub_component = Required('IndexSubComponent')
-
-    @property
-    def name(self):
-        return self.index_sub_component.name
-
-    @property
-    def maxpoints(self):
-        return self.index_sub_component.maxpoints
+answer_result = db.Table('answer_result',
+                      db.Model.metadata,
+                      db.Column('answer_id', db.Integer, db.ForeignKey('answer.id'), index=True),
+                      db.Column('result_id', db.Integer, db.ForeignKey('result.id'), index=True)
+                      )
 
 
-class Index(db.Entity):
-    name = PrimaryKey(str)
-    maxpoints = Required(int)
-    index_components = Set('IndexComponent')
-    results = Set(Result)
+class Answer(db.Model):
+    __tablename__ = 'answer'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    time_received = db.Column(db.DateTime, nullable=False)
+    answer = db.Column(db.String(256), nullable=False)
+    # foreign keys
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    question_name = db.Column(db.String(256), db.ForeignKey('question.name'), nullable=False, index=True)
+    # relationships
+    user = db.relationship('User', back_populates='answers')
+    question = db.relationship('Question', back_populates='answers')
+    results = db.relationship('Result', secondary=answer_result, back_populates='answers')
 
-    @property
-    def questions(self):
-        return self.index_components.index_sub_components.questions
-
-
-class IndexComponent(db.Entity):
-    name = PrimaryKey(str)
-    maxpoints = Required(int)
-    index = Required(Index)
-    index_sub_components = Set('IndexSubComponent')
-    result_components = Set(ResultComponent)
-    info = Required(LongStr)
-    recommendation = Required(LongStr)
-
-    @property
-    def questions(self):
-        return self.index_sub_components.questions
+# indexes
+db.Index('answer_idx_user_question_time', Answer.user_id, Answer.question_name, Answer.time_received)
 
 
-class IndexSubComponent(db.Entity):
-    name = PrimaryKey(str)
-    maxpoints = Required(int)
-    index_component = Required(IndexComponent)
-    result_sub_components = Set(ResultSubComponent)
-    info = Required(LongStr)
-    recommendation = Required(LongStr)
-    questions = Set(Question)
+class Result(db.Model):
+    __tablename__ = 'result'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    time_generated = db.Column(db.DateTime, nullable=False)
+    points = db.Column(db.Integer, nullable=False)
+    maxforanswered = db.Column(db.Integer, nullable=False)
+    # foreign keys
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    index_name = db.Column(db.String(256), db.ForeignKey('index.name'), nullable=False, index=True)
+    # relationships
+    user = db.relationship('User', back_populates='results')
+    index = db.relationship('Index', back_populates='results')
+    answers = db.relationship('Answer', secondary=answer_result, back_populates='results', order_by="Answer.time_received.desc(), Answer.question_name")
+    result_components = db.relationship('ResultComponent', cascade="all, delete-orphan", back_populates='result', order_by="ResultComponent.id")
+
+# indexes
+db.Index('result_idx_user_index_time', Result.user_id, Result.index_name, Result.time_generated)
+
+
+class ResultComponent(db.Model):
+    __tablename__ = 'resultcomponent'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    points = db.Column(db.Integer)
+    maxforanswered = db.Column(db.Integer)
+    # foreign keys
+    result_id = db.Column(db.Integer, db.ForeignKey('result.id'), nullable=False, index=True)
+    indexcomponent_name = db.Column(db.String(256), db.ForeignKey('indexcomponent.name'), nullable=False, index=True)
+    # relationships
+    result = db.relationship('Result', back_populates='result_components')
+    result_sub_components = db.relationship('ResultSubComponent', cascade="all, delete-orphan", back_populates='result_component', order_by="ResultSubComponent.id")
+    index_component = db.relationship('IndexComponent', back_populates='result_components')
+
+
+class ResultSubComponent(db.Model):
+    __tablename__ = 'resultsubcomponent'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    points = db.Column(db.Integer)
+    maxforanswered = db.Column(db.Integer)
+    # foreign keys
+    resultcomponent_id = db.Column(db.Integer, db.ForeignKey('resultcomponent.id'), nullable=False, index=True)
+    indexsubcomponent_name = db.Column(db.String(256), db.ForeignKey('indexsubcomponent.name'), nullable=False, index=True)
+    # relationships
+    result_component = db.relationship('ResultComponent', back_populates='result_sub_components')
+    index_sub_component = db.relationship('IndexSubComponent', back_populates='result_sub_components')
+
+
+class Index(db.Model):
+    __tablename__ = 'index'
+    name = db.Column(db.String(256), primary_key=True)
+    maxpoints = db.Column(db.Integer)
+    # foreign keys
+    # relationships
+    index_components = db.relationship('IndexComponent', cascade="all, delete-orphan", back_populates='index', order_by="IndexComponent.name")
+    results = db.relationship('Result', back_populates='index')
+
+
+class IndexComponent(db.Model):
+    __tablename__ = 'indexcomponent'
+    name = db.Column(db.String(256), primary_key=True)
+    maxpoints = db.Column(db.Integer)
+    info = db.Column(db.String(2048))
+    recommendation = db.Column(db.String(2048))
+    # foreign keys
+    index_name = db.Column(db.String(256), db.ForeignKey('index.name'), nullable=False, index=True)
+    # relationships
+    index = db.relationship('Index', back_populates='index_components')
+    index_sub_components = db.relationship('IndexSubComponent', cascade="all, delete-orphan", back_populates='index_component', order_by="IndexSubComponent.name")
+    result_components = db.relationship('ResultComponent', back_populates='index_component')
+
+
+class IndexSubComponent(db.Model):
+    __tablename__ = 'indexsubcomponent'
+    name = db.Column(db.String(256), primary_key=True)
+    maxpoints = db.Column(db.Integer)
+    info = db.Column(db.String(2048))
+    recommendation = db.Column(db.String(2048))
+    # foreign keys
+    indexcomponent_name = db.Column(db.String(256), db.ForeignKey('indexcomponent.name'), nullable=False, index=True)
+    # relationships
+    questions = db.relationship('Question', secondary=indexsubcomponent_question, back_populates='index_sub_components')
+    index_component = db.relationship('IndexComponent', back_populates='index_sub_components')
+    result_sub_components = db.relationship('ResultSubComponent', back_populates='index_sub_component')
