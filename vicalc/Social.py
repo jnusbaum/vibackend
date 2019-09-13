@@ -513,6 +513,7 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
                          'COMMUNITYCOH')
             results['POINTS'] = results['POINTS'] + results['COMPONENTS']['COMMUNITYCOH']['POINTS']
 
+    logging.info('answer for non close friends - %s', answers['TimesMeetingSpeakingNonCloseFriends'])
     timesMeetingOrSpeakingWithNonCloseFriends = utilities.strToBool(answers, 'TimesMeetingSpeakingNonCloseFriends')
     results['MAXPOINTS'] = results['MAXPOINTS'] + results['COMPONENTS']['COMMUNITYINTER']['MAXPOINTS']
     if timesMeetingOrSpeakingWithNonCloseFriends is not None:
