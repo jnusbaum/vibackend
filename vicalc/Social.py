@@ -548,10 +548,10 @@ def vi_points(answers: Dict[str, str]) -> Dict[str, Union[int, Dict[str, Dict[st
     emotionalAnswered = False
 
     # Emotionally Enriching Experiences
-    inRelationShip = utilities.strToBool(answers, 'InRelationship')
+    inRelationShip = utilities.strToInt(answers, 'InRelationship')
     if inRelationShip is not None:
         emotionalAnswered = True
-        if inRelationShip:
+        if inRelationShip > 1:
             # Love life / relationship
             satisfactionWithLoveLife = utilities.strToInt(answers, 'RelationshipSatisfaction')
             if satisfactionWithLoveLife is not None:
