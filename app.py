@@ -632,18 +632,22 @@ def answer_counts_for_user():
     if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
-    counts = {idx.name: {'total': 0, 'answered': 0}}
-    for ic in idx.index_components:
-        counts[ic.name] = {'total': 0, 'answered': 0}
-        for isc in ic.index_sub_components:
-            for q in isc.questions:
-                counts[ic.name]['total'] = counts[ic.name]['total'] + 1
-                counts[idx.name]['total'] = counts[idx.name]['total'] + 1
-                answers = db.session.query(Answer).join(User)
-                nanswers = answers.filter(User.id == user.id).filter(Answer.question_name == q.name).count()
-                if nanswers > 0:
-                    counts[ic.name]['answered'] = counts[ic.name]['answered'] + 1
-                    counts[idx.name]['answered'] = counts[idx.name]['answered'] + 1
+    questions = db.session.query(Question).join((IndexSubComponent, Question.index_sub_components)).join(IndexComponent)
+    questions = questions.filter(IndexComponent.index_name == idx.name).all()
+
+    counts = {}
+    counts[idx.name] = {'total': 0, 'answered': 0}
+    for q in questions:
+        # number of unanswered question
+        answers = db.session.query(Answer).filter(Answer.user_id == user.id).filter(Answer.question_name == q.name).count()
+        for isc in q.index_sub_components:
+            if isc.indexcomponent_name not in counts:
+                counts[isc.indexcomponent_name] = {'total': 0, 'answered': 0}
+            counts[isc.indexcomponent_name]['total'] += 1
+            counts[idx.name]['total'] += 1
+            if answers > 0:
+                counts[isc.indexcomponent_name]['answered'] += 1
+                counts[idx.name]['answered'] += 1
 
     ret_answers = {'count': 1, 'data': [counts]}
     return jsonify(ret_answers)
