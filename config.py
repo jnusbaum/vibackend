@@ -12,8 +12,9 @@ class Config(object):
     DATABASE = os.environ.get('DATABASE') or 'vibackend'
     DBUSER = os.environ.get('DBUSER') or 'vi@viback'
     DBPWD = os.environ.get('DBPWD') or 'foobar'
-    cstring = 'Driver={ODBC Driver 13 for SQL Server};Server=tcp:{dbhost},1433;Database={database};Uid={dbuser};Pwd={dbpwd};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
-    cstring = cstring.format(dbhost=DBHOST, database=DATABASE, dbuser=DBUSER, dbpwd=DBPWD)
+    DBDRIVER = '{ODBC Driver 17 for SQL Server}'
+    cstring = 'Driver={driver};Server=tcp:{dbhost},1433;Database={database};Uid={dbuser};Pwd={dbpwd};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
+    cstring = cstring.format(driver=DBDRIVER, dbhost=DBHOST, database=DATABASE, dbuser=DBUSER, dbpwd=DBPWD)
     cstring = parse.quote_plus(cstring)
     SQLALCHEMY_DATABASE_URI = "mssql+pyodbc:///?odbc_connect=%s" % cstring
     SQLALCHEMY_TRACK_MODIFICATIONS = False
