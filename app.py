@@ -50,6 +50,7 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
+
 class VIServiceException(Exception):
     def __init__(self, message, status_code):
         Exception.__init__(self, message)
@@ -109,6 +110,7 @@ def handle_exception(error):
 def before_request():
     # log actual full url of each call
     # saves having to correlate with uwsgi server logs
+    # check if from 127.0.0.1 to filter out Azure monitoring
     logging.info("handling request to %s", request.url)
 
 
@@ -119,7 +121,6 @@ def make_shell_context():
             'Result': Result, 'ResultComponent': ResultComponent, 'ResultSubComponent': ResultSubComponent,
             'Index': Index, 'IndexComponent': IndexComponent, 'IndexSubComponent': IndexSubComponent
             }
-
 
 
 def str_to_datetime(ans: str) -> Union[datetime, None]:
