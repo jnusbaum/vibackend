@@ -109,9 +109,7 @@ def handle_exception(error):
 @app.before_request
 def before_request():
     # log actual full url of each call
-    # saves having to correlate with uwsgi server logs
-    # check if from 127.0.0.1 to filter out Azure monitoring
-    logging.info("handling request to %s", request.url)
+    logging.debug("handling request to %s", request.url)
 
 
 @app.shell_context_processor
@@ -222,7 +220,8 @@ def check_user(role_set: Tuple[str, ...]) -> User:
 # password recovery
 @app.route('/reset-password-start', methods=['POST'])
 def reset_password_start():
-    logging.info("in /reset-password-start[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in reset-password-start[POST]")
     email = request.json.get('email', None)
     if not email:
         # not authenticated
@@ -255,7 +254,8 @@ def reset_password_start():
 # password recovery
 @app.route('/reset-password-finish', methods=['POST'])
 def reset_password_finish():
-    logging.info("in /reset-password-finish[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in reset-password-finish[POST]")
     token = request.json.get('token', None)
     if not token:
         # not authenticated
@@ -297,7 +297,8 @@ def reset_password_finish():
 # a refresh token
 @app.route('/login', methods=['POST'])
 def login():
-    logging.info("in /login[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in login[POST]")
     email = request.json.get('email', None)
     password = request.json.get('password', None)
     user = auth_user(email, password)
@@ -322,7 +323,8 @@ def login():
 @app.route('/refresh', methods=['POST'])
 @jwt_refresh_token_required
 def refresh():
-    logging.info("in /refresh[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in refresh[POST]")
     user = check_user(('vivendor', 'viuser'))
     logging.info("refresh: refreshing %s", user.email)
     user.last_login = datetime.utcnow().replace(microsecond=0)
@@ -340,7 +342,8 @@ def refresh():
 @app.route('/logout', methods=['DELETE'])
 @jwt_required
 def logout():
-    logging.info("in /logout[DELETE]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in logout[DELETE]")
     user = check_user(('vivendor', 'viuser'))
     logging.info("logout: logging out %s", user.email)
     for token in user.tokens:
@@ -357,15 +360,18 @@ def logout():
 @jwt.token_in_blacklist_loader
 def check_if_token_revoked(decoded_token):
     return is_token_revoked(decoded_token)
+
+
 # register a new user
 # must have token
 # must be vivendor to create viuser
 @app.route('/users', methods=['POST'])
 @jwt_required
 def new_user():
-    user = check_user(('vivendor',))
-    logging.info("in /users[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in new_user[POST]")
 
+    user = check_user(('vivendor',))
     credentials = None
     if request.is_json:
         credentials = request.get_json()
@@ -431,7 +437,8 @@ def new_user():
 @app.route('/users', methods=['GET'])
 @jwt_required
 def get_user():
-    logging.info("in /users[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_user[GET]")
     user = check_user(('viuser',))
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
     return jsonify(ret_results)
@@ -441,7 +448,8 @@ def get_user():
 @app.route('/users', methods=['PATCH'])
 @jwt_required
 def modify_user():
-    logging.info("in /users[PATCH]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in modify_user[PATCH]")
     user = check_user(('viuser',))
     # can only change email
     credentials = None
@@ -501,7 +509,8 @@ def modify_user():
 @app.route('/users', methods=['DELETE'])
 @jwt_required
 def delete_user():
-    logging.info("in /users[DELETE]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in delete_user[DELETE]")
     user = check_user(('viuser',))
     # deletes ALL user data - user record, all answers and results
     db.session.delete(user)
@@ -520,7 +529,8 @@ def delete_user():
 @app.route('/users/answers', methods=['GET'])
 @jwt_required
 def answers_for_user():
-    logging.info("in /users/answers[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in answers_for_user[GET]")
 
     # authenticate user
     user = check_user(('viuser',))
@@ -568,7 +578,8 @@ def answers_for_user():
 @app.route('/users/answers', methods=['POST'])
 @jwt_required
 def add_answers_for_user():
-    logging.info("in /users/answers[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in add_answers_for_user[POST]")
     # truncate to second precision
     trecv = datetime.utcnow().replace(microsecond=0)
 
@@ -623,7 +634,8 @@ def add_answers_for_user():
 @app.route('/users/answers/counts', methods=['GET'])
 @jwt_required
 def answer_counts_for_user():
-    logging.info("in /users/answers/counts[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in answer_counts_for_user[GET]")
 
     # authenticate user
     user = check_user(('viuser',))
@@ -659,7 +671,8 @@ def answer_counts_for_user():
 @app.route('/users/results', methods=['GET'])
 @jwt_required
 def results_for_user():
-    logging.info("in /users/results[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in results_for_user[GET]")
     trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
@@ -685,7 +698,8 @@ def results_for_user():
 @app.route('/users/results', methods=['POST'])
 @jwt_required
 def create_index_for_user():
-    logging.info("in /users/results[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in create_index_for_user[POST]")
     trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
@@ -776,7 +790,8 @@ def create_index_for_user():
 @app.route('/users/recommendations/<component_name>', methods=['GET'])
 @jwt_required
 def get_recommendations_for_result(component_name):
-    logging.info("in /users/recommendations/%s[GET]", component_name)
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_recommendations_for_result[GET]")
 
     # authenticate user
     user = check_user(('viuser',))
@@ -844,7 +859,8 @@ def get_recommendations_for_result(component_name):
 @app.route('/results/<int:result_id>', methods=['GET'])
 @jwt_required
 def get_result(result_id):
-    logging.info("in /results/<result_id>[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_result[GET]")
     user = check_user(('viuser',))
 
     result = db.session.query(Result).get(result_id)
@@ -863,7 +879,8 @@ def get_result(result_id):
 @app.route('/results/<int:result_id>/components/<int:component_id>', methods=['GET'])
 @jwt_required
 def get_result_component(result_id, component_id):
-    logging.info("in /results/%s/components/%s[GET]", result_id, component_id)
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_result-component[GET]")
     # authenticate user
     user = check_user(('viuser',))
     result = db.session.query(Result).get(result_id)
@@ -887,7 +904,8 @@ def get_result_component(result_id, component_id):
 @app.route('/results/<int:result_id>/answers', methods=['GET'])
 @jwt_required
 def get_result_answers(result_id):
-    logging.info("in /results/%s/answers[GET]", result_id)
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_result_answers[GET]")
     user = check_user(('viuser',))
     result = db.session.query(Result).options(joinedload(Result.answers)).get(result_id)
     if not result:
@@ -912,7 +930,8 @@ def get_result_answers(result_id):
 @app.route('/statistics', methods=['GET'])
 @jwt_required
 def get_statistics():
-    logging.info("in /statistics[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_statistics[GET]")
     trecv = datetime.utcnow().replace(microsecond=0)
     td = date.today()
     # authenticate user
@@ -981,7 +1000,8 @@ def get_statistics():
 @app.route('/answers/<int:answer_id>', methods=['GET'])
 @jwt_required
 def get_answer(answer_id):
-    logging.info("in /answers/<answer_id>[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_answer[GET]")
     user = check_user(('viuser',))
     answer = db.session.query(Answer).get(answer_id)
     if not answer:
@@ -1000,7 +1020,8 @@ def get_answer(answer_id):
 @app.route('/answers/<int:answer_id>/results', methods=['GET'])
 @jwt_required
 def get_answer_results(answer_id):
-    logging.info("in /answers/<answer_id>/results[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_answer_results[GET]")
     user = check_user(('viuser',))
     answer = db.session.query(Answer).options(joinedload(Answer.results)).get(answer_id)
     if not answer:
