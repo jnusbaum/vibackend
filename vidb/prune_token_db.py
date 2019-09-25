@@ -8,13 +8,6 @@ from sqlalchemy.orm import sessionmaker
 
 from models import *
 
-DBHOST = os.environ.get('DBHOST') or '192.168.0.134'
-DATABASE = os.environ.get('DATABASE') or 'vibackend'
-DBUSER = os.environ.get('DBUSER') or 'vi@viback'
-DBPWD = os.environ.get('DBPWD') or 'T3QXCejm7GnCZtTH'
-# encode password
-DBPWD = parse.quote_plus(DBPWD)
-
 
 dbhost = os.environ.get('DBHOST') or '192.168.0.134'
 database = os.environ.get('DATABASE') or 'vibackend'
@@ -27,7 +20,7 @@ if not dbpwd:
     key_vault_client = KeyVaultClient(credentials)
     key_vault_uri = 'https://viinc.vault.azure.net'
     secret = key_vault_client.get_secret(key_vault_uri,  # Your KeyVault URL
-                                         "BACKEND-DB-PWD",  # Name of your secret
+                                         "MSSQL-DB-PWD",  # Name of your secret
                                          "")  # The version of the secret. Empty string for latest
     dbpwd = secret.value
 dbpwd = parse.quote_plus(dbpwd)
@@ -35,7 +28,7 @@ SQLALCHEMY_DATABASE_URI = 'mssql+pymssql://{user}:{password}@{host}/{db}?charset
                                                                                               password=dbpwd,
                                                                                               host=dbhost,
                                                                                               db=database)
-engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=True)
+engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=True, connect_args={'tds_version': '7.0'})
 Session = sessionmaker(bind=engine)
 session = Session()
 
