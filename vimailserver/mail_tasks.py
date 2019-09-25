@@ -1,11 +1,17 @@
+import os
 import logging
 from email.message import EmailMessage
 from typing import Dict
 import smtplib
 from datetime import datetime
+from celery import Celery
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from urllib import parse
 from vidb.models import *
 
-from celeryconfig import celery, mailsvr, mailuser, mailpwd, session
+broker = os.getenv('REDISBROKER')
+celery = Celery('mail_server', broker=broker)
 
 
 def build_reminder_mail(name: str, index_id: str, counts: Dict[str, Dict[str, int]]) -> EmailMessage:
@@ -220,10 +226,16 @@ def build_reset_mail(url: str, token) -> EmailMessage:
 
 
 def sendmail(email, msg):
+    mailsvr = os.environ.get('MAILSVR') or 'smtp.gmail.com'
+    mailuser = os.environ.get('MAILUSER') or 'vicalc@getyourvi.com'
+    mailpwd = os.environ.get('MAILPWD') or 'v1t@l1ty'
+
     # me == the sender's email address
     # you == the recipient's email address
     me = mailuser
     you = email
+
+    msg['From'] = me
 
     # the message is ready now
     print("sending email to %s" % (email, ))
@@ -239,25 +251,46 @@ def sendmail(email, msg):
     try:
         server.sendmail(me, you, msg.as_string())
         server.quit()
-    except smtplib.SMTPException as me:
+    except smtplib.SMTPException as mex:
         logging.error("error sending email")
-        raise me
+        raise mex
 
 
 @celery.task(name='mail_tasks.send_welcome')
 def send_welcome(user_id: int):
+    from msrestazure.azure_active_directory import MSIAuthentication
+    from azure.keyvault.key_vault_client import KeyVaultClient
+
+    dbhost = os.environ.get('DBHOST') or '192.168.0.134'
+    database = os.environ.get('DATABASE') or 'vibackend'
+    dbuser = os.environ.get('DBUSER') or 'vi@viback'
+    # Create MSI Authentication
+    credentials = MSIAuthentication(resource='https://vault.azure.net')
+    key_vault_client = KeyVaultClient(credentials)
+    key_vault_uri = 'https://viinc.vault.azure.net'
+    secret = key_vault_client.get_secret(key_vault_uri,  # Your KeyVault URL
+                                         "MSSQL-DB-PWD",  # Name of your secret
+                                         "")  # The version of the secret. Empty string for latest
+    dbpwd = secret.value
+    dbpwd = parse.quote_plus(dbpwd)
+    SQLALCHEMY_DATABASE_URI = 'mssql+pymssql://{user}:{password}@{host}/{db}?charset=utf8'.format(user=dbuser,
+                                                                                                  password=dbpwd,
+                                                                                                  host=dbhost,
+                                                                                                  db=database)
+
+    engine = create_engine(SQLALCHEMY_DATABASE_URI)
+    Session = sessionmaker(bind=engine)
+    session = Session()
 
     user = session.query(User).get(user_id)
     # me == the sender's email address
     # you == the recipient's email address
-    me = mailuser
     you = user.email
 
     msg = build_welcome_mail(user.first_name)
 
     # generic email headers
     msg['Subject'] = 'Vitality Index welcome'
-    msg['From'] = me
     msg['To'] = you
 
     sendmail(you, msg)
@@ -268,19 +301,39 @@ def send_welcome(user_id: int):
 
 @celery.task(name='mail_tasks.send_reminder')
 def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]):
+    from msrestazure.azure_active_directory import MSIAuthentication
+    from azure.keyvault.key_vault_client import KeyVaultClient
 
+    dbhost = os.environ.get('DBHOST') or '192.168.0.134'
+    database = os.environ.get('DATABASE') or 'vibackend'
+    dbuser = os.environ.get('DBUSER') or 'vi@viback'
+    # Create MSI Authentication
+    credentials = MSIAuthentication(resource='https://vault.azure.net')
+    key_vault_client = KeyVaultClient(credentials)
+    key_vault_uri = 'https://viinc.vault.azure.net'
+    secret = key_vault_client.get_secret(key_vault_uri,  # Your KeyVault URL
+                                         "MSSQL-DB-PWD",  # Name of your secret
+                                         "")  # The version of the secret. Empty string for latest
+    dbpwd = secret.value
+    dbpwd = parse.quote_plus(dbpwd)
+    SQLALCHEMY_DATABASE_URI = 'mssql+pymssql://{user}:{password}@{host}/{db}?charset=utf8'.format(user=dbuser,
+                                                                                                  password=dbpwd,
+                                                                                                  host=dbhost,
+                                                                                                  db=database)
+
+    engine = create_engine(SQLALCHEMY_DATABASE_URI)
+    Session = sessionmaker(bind=engine)
+    session = Session()
     user = session.query(User).get(user_id)
 
-    # me == the sender's email address
     # you == the recipient's email address
-    me = mailuser
     you = user.email
 
     msg = build_reminder_mail(user.first_name, index_id, counts)
 
     # generic email headers
     msg['Subject'] = 'Vitality Index update'
-    msg['From'] = me
+
     msg['To'] = you
 
     sendmail(you, msg)
@@ -294,14 +347,12 @@ def send_password_reset(email: str, url: str, token):
 
     # me == the sender's email address
     # you == the recipient's email address
-    me = mailuser
     you = email
 
     msg = build_reset_mail(url, token)
 
     # generic email headers
     msg['Subject'] = 'Vitality Index password reset'
-    msg['From'] = me
     msg['To'] = you
 
     sendmail(you, msg)
