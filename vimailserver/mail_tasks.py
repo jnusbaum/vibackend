@@ -2,10 +2,10 @@ import logging
 from email.message import EmailMessage
 from typing import Dict
 import smtplib
-from vidb.models import *
 from datetime import datetime
+from vidb.models import *
 
-from celeryconfig import celery, mailsvr, mailuser, mailpwd
+from celeryconfig import celery, mailsvr, mailuser, mailpwd, session
 
 
 def build_reminder_mail(name: str, index_id: str, counts: Dict[str, Dict[str, int]]) -> EmailMessage:
@@ -247,7 +247,7 @@ def sendmail(email, msg):
 @celery.task(name='mail_tasks.send_welcome')
 def send_welcome(user_id: int):
 
-    user = User[user_id]
+    user = session.query(User).get(user_id)
     # me == the sender's email address
     # you == the recipient's email address
     me = mailuser
@@ -261,13 +261,15 @@ def send_welcome(user_id: int):
     msg['To'] = you
 
     sendmail(you, msg)
-    user.last_notification = datetime.utcnow().replace(microsecond=0)
+    user.last_notification = datetime.utcnow()
+    session.add(user)
+    session.commit()
 
 
 @celery.task(name='mail_tasks.send_reminder')
 def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]):
 
-    user = User[user_id]
+    user = session.query(User).get(user_id)
 
     # me == the sender's email address
     # you == the recipient's email address
@@ -283,6 +285,8 @@ def send_reminder(user_id: int, index_id: str, counts: Dict[str, Dict[str, int]]
 
     sendmail(you, msg)
     user.last_notification = datetime.utcnow()
+    session.add(user)
+    session.commit()
 
 
 @celery.task(name='mail_tasks.send_password_reset')
