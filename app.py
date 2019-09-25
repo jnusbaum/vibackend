@@ -43,7 +43,7 @@ from sqlalchemy.exc import IntegrityError
 from vidb.models import User, Token, Question, Answer, Index, Result, ResultComponent, ResultSubComponent, IndexComponent, IndexSubComponent
 from views import UserView, AnswerView, ResultView, ResultComponentView
 from vicalc import VICalculator
-from vimailserver import mail_tasks
+from vimailserver.mail_tasks import send_password_reset
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -243,8 +243,8 @@ def reset_password_start():
     token = s.dumps(user.id)
     # send email
     try:
-        mail_tasks.send_password_reset.delay(email, url, token)
-    except mail_tasks.send_password_reset.OperationalError as oe:
+        send_password_reset.delay(email, url, token)
+    except send_password_reset.OperationalError:
         logging.error("reset_password: error sending password reset email to %s", email)
         raise VI500Exception("error sending password reset email")
     logging.info("reset_password: reset email sent")
