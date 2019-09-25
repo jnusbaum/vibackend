@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-git subtree pull --prefix vidb https://github.com/vitalityindex/vidb.git sqlalchemy --squash
+git subtree pull --prefix vidb vidb_remote master --squash
