@@ -517,7 +517,6 @@ def delete_user():
 # as-of-time - latest answer for each question before this time
 # question - latest answer for question
 # question and as-of-time - latest answer for question before time
-# TODO make function match description
 @app.route('/users/answers', methods=['GET'])
 @db_session
 @jwt_required
