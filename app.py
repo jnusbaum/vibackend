@@ -1,90 +1,124 @@
 """
-Primary backend app code
+Primary app code. Listens to email and processes submissions
 """
-from flask import Flask
-app = Flask(__name__)
-# set up config
-app.config.from_pyfile('./config/viservice.cfg')
 import os
+import logging
 from datetime import datetime
+from flask import Flask
+from config import Config
+app = Flask(__name__)
+app.config.from_object(Config)
+
 # set up logger
-app.config['LOGDIR'] = os.getenv('LOGDIR')
-app.config['LOGNAME'] = os.getenv('LOGNAME')
 # make file unique
 # we will be running multiple processes behind gunicorn
 # we do not want all the processes writing to the same log file as this can result in garbled data in the file
 # so we need a unique file name each time we run
 # we will add date and time down to seconds (which will probably be the same for all processes)
 # and add process id to get uniqueness
-fparts = app.config['LOGNAME'].split('.')
+fparts = app.config['LOGFILE'].split('.')
 bname = fparts[0]
 ename = fparts[1]
 nname = "%s.%s.%d.%s" % (bname, datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%S"), os.getpid(), ename)
 logfile = app.config['LOGDIR'] + nname
 # create log directory if it does not exist
 os.makedirs(app.config['LOGDIR'], 0o777, True)
-app.config['LOGLEVEL'] = os.getenv('LOGLEVEL')
 # set up basic logging
-import logging
-logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'], format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename=logfile, level=app.config['LOGLEVEL'],
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
-from typing import Tuple, Union
-# pretty printing/formatting
 import pprint
-# date and time stuff
-from datetime import timedelta
+from datetime import date, timedelta, timezone
 from passlib.hash import argon2
-
-# Flask
+from typing import Tuple, Union
 from flask import jsonify, request
-from flask_jwt_extended import (
-    JWTManager, jwt_required, create_access_token,
-    jwt_refresh_token_required, create_refresh_token,
-    get_jwt_identity
-)
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
-# db interface
-# noinspection PyUnresolvedReferences
-from pony.orm import avg, max, between, desc, Set
-
-# VI algorithm
+from flask_jwt_extended import (
+    JWTManager, jwt_required, jwt_refresh_token_required, decode_token, get_jwt_identity, 
+    create_access_token, create_refresh_token
+)
+from sqlalchemy import func, cast, literal
+from sqlalchemy.orm import joinedload
+from sqlalchemy.exc import IntegrityError
+from vidb.models import User, Token, Question, Answer, Index, Result, ResultComponent, ResultSubComponent, IndexComponent, IndexSubComponent
+from views import UserView, AnswerView, ResultView, ResultComponentView
 from vicalc import VICalculator
-
-from blacklist_helpers import is_token_revoked, add_token_to_database
-from views import *
-
-# data model
-from vidb.models import *
-# email celery tasks
 from vimailserver import mail_tasks
+from flask_sqlalchemy import SQLAlchemy
 
-# configure from environment variables
-# these will come in secure form from azure app settings in azure deployment
-# database/pony
-app.config['DBHOST'] = os.getenv('DBHOST')
-app.config['DATABASE'] = os.getenv('DATABASE')
-app.config['DBUSER'] = os.getenv('DBUSER')
-app.config['DBPWD'] = os.getenv('DBPWD')
-app.config['DBSSLMODE'] = os.getenv('DBSSLMODE')
 
-# itsdangerous, jwt and flask keys
-app.config['SECRET_KEY'] = os.getenv('FLASKKEY')
-app.config['JWT_SECRET_KEY'] = os.getenv('JWTKEY')
-app.config['IDANGEROUSKEY'] = os.getenv('ITSDANGEROUSKEY')
-
+db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
-index_id = "Vitality Index"
 
-logging.info("connecting to database %s:%s:%s" % (app.config['DBHOST'], app.config['DATABASE'], app.config['DBUSER']))
+class VIServiceException(Exception):
+    def __init__(self, message, status_code):
+        Exception.__init__(self, message)
+        self.message = message
+        self.status_code = status_code
 
-# set up pony
-db.bind(provider='postgres', host=app.config['DBHOST'],
-        database=app.config['DATABASE'],
-        user=app.config['DBUSER'],
-        password=app.config['DBPWD'],
-        sslmode=app.config['DBSSLMODE'])
-db.generate_mapping()
+    def to_dict(self):
+        rv = {'error': self.message}
+        return rv
+
+
+class VI400Exception(VIServiceException):
+    def __init__(self, message):
+        super().__init__(message, 400)
+
+
+class VI401Exception(VIServiceException):
+    def __init__(self, message):
+        super().__init__(message, 401)
+
+
+class VI403Exception(VIServiceException):
+    def __init__(self, message):
+        super().__init__(message, 403)
+
+
+class VI404Exception(VIServiceException):
+    def __init__(self, message):
+        super().__init__(message, 404)
+
+
+class VI500Exception(VIServiceException):
+    def __init__(self, message):
+        super().__init__(message, 500)
+
+
+def error_response(error, headers=None):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    if headers:
+        response.headers = headers
+    return response
+
+
+@app.errorhandler(VI401Exception)
+def handle_exception_401(error):
+    return error_response(error, {'WWW-Authenticate': 'Bearer realm="access to VI backend"'})
+
+
+@app.errorhandler(VIServiceException)
+def handle_exception(error):
+    db.session.rollback()
+    return error_response(error)
+
+
+@app.before_request
+def before_request():
+    # log actual full url of each call
+    logging.debug("handling request to %s", request.url)
+
+
+@app.shell_context_processor
+def make_shell_context():
+    return {'db': db, 'User': User, 'Token': Token,
+            'Question': Question, 'Answer': Answer,
+            'Result': Result, 'ResultComponent': ResultComponent, 'ResultSubComponent': ResultSubComponent,
+            'Index': Index, 'IndexComponent': IndexComponent, 'IndexSubComponent': IndexSubComponent
+            }
 
 
 def str_to_datetime(ans: str) -> Union[datetime, None]:
@@ -95,68 +129,47 @@ def str_to_datetime(ans: str) -> Union[datetime, None]:
     return None
 
 
-class VIServiceException(Exception):
-
-    def __init__(self, message, status_code):
-        Exception.__init__(self)
-        self.message = message
-        self.status_code = status_code
-
-    def to_dict(self):
-        rv = {'error': self.message}
-        return rv
+def _epoch_utc_to_datetime(epoch_utc) -> datetime:
+    """
+    Helper function for converting epoch timestamps (as stored in JWTs) into
+    python datetime objects (which are easier to use with sqlalchemy).
+    """
+    return datetime.fromtimestamp(epoch_utc, tz=timezone.utc)
 
 
-class VI400Exception(VIServiceException):
+def add_token_to_database(encoded_token, user: User) -> None:
+    """
+    Adds a new token to the database. It is not revoked when it is added.
+    """
+    decoded_token = decode_token(encoded_token)
+    jti = decoded_token['jti']
+    token_type = decoded_token['type']
+    expires = _epoch_utc_to_datetime(decoded_token['exp'])
+    revoked = False
 
-    def __init__(self, message):
-        super().__init__(message, 400)
-
-
-class VI401Exception(VIServiceException):
-
-    def __init__(self, message):
-        super().__init__(message, 401)
-
-
-class VI403Exception(VIServiceException):
-
-    def __init__(self, message):
-        super().__init__(message, 403)
-
-
-class VI404Exception(VIServiceException):
-
-    def __init__(self, message):
-        super().__init__(message, 404)
+    token = Token(jti=jti,
+                  token_type=token_type,
+                  user=user,
+                  expires=expires,
+                  revoked=revoked
+                  )
+    db.session.add(token)
+    db.session.commit()
 
 
-class VI500Exception(VIServiceException):
-
-    def __init__(self, message):
-        super().__init__(message, 500)
-
-
-@app.errorhandler(VI401Exception)
-def handle_exception(error):
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    response.headers = {'WWW-Authenticate': 'Bearer realm="access to VI backend"'}
-    return response
-
-
-@app.errorhandler(VIServiceException)
-def handle_exception(error):
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    return response
-
-
-@app.before_request
-def before_request():
-    # log actual full url of each call
-    # saves having to correlate with uwsgi server logs
-    logging.info("handling request to %s", request.url)
+def is_token_revoked(decoded_token) -> bool:
+    """
+    Checks if the given token is revoked or not. Because we are adding all the
+    tokens that we create into this database, if the token is not present
+    in the database we are going to consider it revoked, as we don't know where
+    it was created.
+    """
+    jti = decoded_token['jti']
+    token = db.session.query(Token).filter(Token.jti == jti).one_or_none()
+    if token:
+        return token.revoked
+    else:
+        return True
 
 
 def auth_user(email: str, pwd: str) -> User:
@@ -173,7 +186,7 @@ def auth_user(email: str, pwd: str) -> User:
 
     # lookup in db and authenticate
     # lookup User with email
-    user = User.get(email=email)
+    user = db.session.query(User).filter(User.email == email).one_or_none()
     if not user:
         # not authenticated
         logging.warning("auth_user: failed to authenticate %s", email)
@@ -183,8 +196,6 @@ def auth_user(email: str, pwd: str) -> User:
         # not authenticated
         logging.warning("auth_user: failed to authenticate %s", email)
         raise VI401Exception("Incorrect email or password")
-
-    logging.info('auth_user: user %s authenticated', email)
     return user
 
 
@@ -192,10 +203,8 @@ def check_user(role_set: Tuple[str, ...]) -> User:
     identity = get_jwt_identity()
     user_id = identity['id']
     logging.info('check_user: checking user %s', user_id)
-    user = None
-    try:
-        user = User[user_id]
-    except ObjectNotFound:
+    user = db.session.query(User).get(user_id)
+    if not user:
         # not authenticated
         logging.error("check_user: failed to authenticate user id does not exist - %s", user_id)
         raise VI401Exception("Failed to authenticate user.")
@@ -205,21 +214,14 @@ def check_user(role_set: Tuple[str, ...]) -> User:
         logging.warning("in check_user: insufficient privilege for user %s", user.email)
         raise VI403Exception("User does not have permission.")
 
-    logging.info('check_user: user %s checked', user.email)
     return user
-
-
-# Define our callback function to check if a token has been revoked or not
-@jwt.token_in_blacklist_loader
-def check_if_token_revoked(decoded_token):
-    return is_token_revoked(decoded_token)
 
 
 # password recovery
 @app.route('/reset-password-start', methods=['POST'])
-@db_session
 def reset_password_start():
-    logging.info("in /reset-password-start[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in reset-password-start[POST]")
     email = request.json.get('email', None)
     if not email:
         # not authenticated
@@ -231,7 +233,7 @@ def reset_password_start():
         logging.error("reset_password: incorrect input - no url")
         raise VI400Exception("Please provide url.")
     # lookup email in user db
-    user = User.get(email=email)
+    user = db.session.query(User).filter(User.email == email).one_or_none()
     if not user:
         logging.error("reset_password: email %s not found", email)
         raise VI404Exception("User not found.")
@@ -245,16 +247,15 @@ def reset_password_start():
     except mail_tasks.send_password_reset.OperationalError as oe:
         logging.error("reset_password: error sending password reset email to %s", email)
         raise VI500Exception("error sending password reset email")
-
-    logging.info("reset_password: reset email sent for %s", user.email)
+    logging.info("reset_password: reset email sent")
     return jsonify({'count': 1, 'data': [{'type': 'ResetToken', 'reset_token': token}]})
 
 
 # password recovery
 @app.route('/reset-password-finish', methods=['POST'])
-@db_session
 def reset_password_finish():
-    logging.info("in /reset-password-finish[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in reset-password-finish[POST]")
     token = request.json.get('token', None)
     if not token:
         # not authenticated
@@ -277,17 +278,17 @@ def reset_password_finish():
         logging.error("reset password: token invalid")
         raise VI400Exception("Token invalid.")
     # if not expired
-    try:
-        user = User[user_id]
-    except ObjectNotFound:
+    user = db.session.query(User).get(user_id)
+    if not user:
         # not authenticated
         logging.error("reset password: User not found")
         raise VI404Exception("User not found.")
-
     logging.info("finishing reset of password for %s", user.email)
     user.pword = argon2.hash(password)
     for token in user.tokens:
         token.revoked = True
+    db.session.add(user) # should cause tokens to be added/saved too
+    db.session.commit()
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully updated password for {}".format(user.email)}]})
 
@@ -295,9 +296,9 @@ def reset_password_finish():
 # Standard login endpoint. Will return a fresh access token and
 # a refresh token
 @app.route('/login', methods=['POST'])
-@db_session
 def login():
-    logging.info("in /login[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in login[POST]")
     email = request.json.get('email', None)
     password = request.json.get('password', None)
     user = auth_user(email, password)
@@ -309,10 +310,10 @@ def login():
 
     add_token_to_database(access_token, user)
     add_token_to_database(refresh_token, user)
-    # create_access_token supports an optional 'fresh' argument,
-    # which marks the token as fresh or non-fresh accordingly.
-    # As we just verified their email and password, we are
-    # going to mark the token as fresh here.
+
+    db.session.add(user)
+    db.session.commit()
+
     ret = {'count': 1, 'data': [{'type': 'AccessToken', 'access_token': access_token, 'refresh_token': refresh_token}]}
     return jsonify(ret)
 
@@ -320,48 +321,57 @@ def login():
 # Refresh token endpoint. This will generate a new access token from
 # the refresh token.
 @app.route('/refresh', methods=['POST'])
-@db_session
 @jwt_refresh_token_required
 def refresh():
-    logging.info("in /refresh[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in refresh[POST]")
     user = check_user(('vivendor', 'viuser'))
     logging.info("refresh: refreshing %s", user.email)
     user.last_login = datetime.utcnow().replace(microsecond=0)
     new_token = create_access_token(identity={'id': user.id}, fresh=True)
     add_token_to_database(new_token, user)
+
+    db.session.add(user)
+    db.session.commit()
+
     ret = {'count': 1, 'data': [{'type': 'AccessToken', 'access_token': new_token, 'refresh_token': None}]}
     return jsonify(ret)
 
 
 # Endpoint for revoking all the current users tokens
 @app.route('/logout', methods=['DELETE'])
-@db_session
 @jwt_required
 def logout():
-    logging.info("in /logout[DELETE]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in logout[DELETE]")
     user = check_user(('vivendor', 'viuser'))
     logging.info("logout: logging out %s", user.email)
     for token in user.tokens:
         token.revoked = True
+
+    db.session.add(user)
+    db.session.commit()
+
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully logged out user {}".format(user.email)}]})
 
 
-#
-# user methods
-#
+# Define our callback function to check if a token has been revoked or not
+@jwt.token_in_blacklist_loader
+def check_if_token_revoked(decoded_token):
+    return is_token_revoked(decoded_token)
 
 
 # register a new user
 # must have token
 # must be vivendor to create viuser
 @app.route('/users', methods=['POST'])
-@db_session
 @jwt_required
 def new_user():
-    user = check_user(('vivendor',))
-    logging.info("in /users[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in new_user[POST]")
 
+    user = check_user(('vivendor',))
     credentials = None
     if request.is_json:
         credentials = request.get_json()
@@ -410,13 +420,12 @@ def new_user():
         user = User(email=email, pword=xhash, birth_date=bdate,
                     postal_code=postal_code, gender=gender, first_name=first_name, role=nrole)
         # flush to get id
-        flush()
-    except (IntegrityError, TransactionIntegrityError):
+        db.session.add(user)
+        db.session.commit()
+    except IntegrityError:
         # already exists
         logging.error("new_user: user name exists %s", email)
         raise VI400Exception("User with specified email already exists.")
-
-    logging.info("new_user: created %s", user.email)
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
 
     return jsonify(ret_results), 201
@@ -426,22 +435,21 @@ def new_user():
 # fresh token required
 # must be owner of data
 @app.route('/users', methods=['GET'])
-@db_session
 @jwt_required
 def get_user():
-    logging.info("in /users[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_user[GET]")
     user = check_user(('viuser',))
-    logging.info("get_user: got %s", user.email)
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
     return jsonify(ret_results)
 
 
 # modify user data
 @app.route('/users', methods=['PATCH'])
-@db_session
 @jwt_required
 def modify_user():
-    logging.info("in /users[PATCH]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in modify_user[PATCH]")
     user = check_user(('viuser',))
     # can only change email
     credentials = None
@@ -468,7 +476,8 @@ def modify_user():
         email = credentials['email']
         if email != user.email:
             # email (primary key) is changing
-            if User.exists(email=email):
+            q = db.session.query(User).filter(User.email == email)
+            if db.session.query(literal(True)).filter(q.exists()).scalar():
                 # user with this email already exists
                 logging.error("user name exists")
                 raise VI400Exception("User with specified email already exists.")
@@ -489,87 +498,77 @@ def modify_user():
     except KeyError:
         pass
 
-    flush()
-    logging.info("modify_user: modified %s", user.email)
+    db.session.add(user)
+    db.session.commit()
+
     ret_results = {'count': 1, 'data': [UserView.render(user)]}
     return jsonify(ret_results)
 
 
 # delete user data
 @app.route('/users', methods=['DELETE'])
-@db_session
 @jwt_required
 def delete_user():
-    logging.info("in /users[DELETE]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in delete_user[DELETE]")
     user = check_user(('viuser',))
-    # logout first
-    for token in user.tokens:
-        token.revoked = True
     # deletes ALL user data - user record, all answers and results
-    user.delete()
-    logging.info("delete_user: deleted %s", user.email)
-    return jsonify({'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully deleted user {} out".format(user.email)}]})
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify(
+        {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully deleted user {} out".format(user.email)}]})
 
 
 # get answer set for user
 # default get the latest answer for user for each question in index
 # filters as url parameters - as-of-time, question
 # as-of-time - latest answer for each question before this time
-# question - latest answer for question
+# question - all answers for question ordered by time received desc
 # question and as-of-time - latest answer for question before time
 @app.route('/users/answers', methods=['GET'])
-@db_session
 @jwt_required
 def answers_for_user():
-    logging.info("in /users/answers[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in answers_for_user[GET]")
 
     # authenticate user
     user = check_user(('viuser',))
 
+    # get index
+    idx = db.session.query(Index).get(app.config['INDEX'])
+    if not idx:
+        raise VI404Exception("No Index with the specified id was found.")
+
+    answers = db.session.query(Answer).join(Question)
+    answers = answers.join((IndexSubComponent, Question.index_sub_components)).join(IndexComponent)
+    answers = answers.filter(Answer.user_id == user.id).filter(IndexComponent.index_name == idx.name)
     # this parameter can be a question name or not provided
     # if not provided answers for all questions (possibly qualified by index) are returned
-    question_id = request.args.get('question')
+    question_name = request.args.get('question')
+    if question_name:
+        question = None
+        question = db.session.query(Question).get(question_name)
+        if not question:
+            raise VI404Exception("No Question with the specified id was found.")
+        answers = answers.filter(Question.name == question_name)
+    else:
+        answers = answers.order_by(Question.name)
+    answers = answers.order_by(Answer.time_received.desc())
     # this parameter can be a datetime string or not provided
     # pretty much required for useful answers unless question is specified
     aod = request.args.get('as-of-time', type=str_to_datetime)
-
-    if question_id:
-        try:
-            question = Question[question_id]
-        except ObjectNotFound:
-            raise VI404Exception("No Question with the specified id was found.")
-        answers = question.answers.filter(lambda a: a.user == user and a.question == question)
-        if aod:
-            # question and aod
-            try:
-                question = Question[question_id]
-            except ObjectNotFound:
-                raise VI404Exception("No Question with the specified id was found.")
-            answers = answers.filter(lambda a: a.time_received <= aod)
-        answers = answers.order_by(lambda a: desc(a.time_received))[:1]
+    if aod:
+        answers = answers.filter(Answer.time_received <= aod).all()
+        manswers = {}
+        # assume current answers are ordered by question and time received descending
+        for answer in answers:
+            if answer.question not in manswers:
+                manswers[answer.question] = answer
+        answers = manswers.values()
     else:
-        # not question id
-        idx = None
-        try:
-            # get index
-            idx = Index[index_id]
-        except ObjectNotFound:
-            raise VI404Exception("No Index with the specified id was found.")
-        # sort the questions by name
-        # questions = sorted(list(idx.questions._items_.keys()), key=lambda q: q.name)
-        questions = sorted(idx.questions, key=lambda q: q.name)
-        manswers = []
-        for question in questions:
-            answers = question.answers.filter(lambda a: a.user == user)
-            if aod:
-                # map questions by name and create null answer for each question
-                # get the latest answer for this question and user
-                answers = answers.filter(lambda a: a.time_received <= aod)
-            answers = answers.order_by(lambda a: desc(a.time_received))[:1]
-            manswers.append(answers[0])
-        answers = manswers
+        answers = answers.all()
 
-    logging.info("answers_for_user: answers fetched for %s", user.email)
     ret_answers = {'count': len(answers), 'data': [AnswerView.render(a) for a in answers]}
     return jsonify(ret_answers)
 
@@ -577,10 +576,10 @@ def answers_for_user():
 # add a new answer(s) for a user
 # answers in POST data
 @app.route('/users/answers', methods=['POST'])
-@db_session
 @jwt_required
 def add_answers_for_user():
-    logging.info("in /users/answers[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in add_answers_for_user[POST]")
     # truncate to second precision
     trecv = datetime.utcnow().replace(microsecond=0)
 
@@ -604,15 +603,10 @@ def add_answers_for_user():
         logging.error("no answers supplied")
         raise VI400Exception("No answers supplied.")
 
-    idx = None
-    try:
-        # get index
-        idx = Index[index_id]
-    except ObjectNotFound:
+    # get index
+    idx = db.session.query(Index).get(app.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
-
-    # load the components
-    idx.index_components.load()
 
     ret_answers = []
     for question_name in answers.keys():
@@ -620,58 +614,54 @@ def add_answers_for_user():
         # empty answers are not saved
         # all answers are strings so this tests for empty string or None
         if answers[question_name]:
-            question = None
-            try:
-                question = Question[question_name]
-            except ObjectNotFound:
+            question = db.session.query(Question).get(question_name)
+            if not question:
                 # warning - answer for question that does not exist
                 raise VI404Exception("No Question with the specified id was found.")
-            # load related sub components
-            question.index_sub_components.load()
 
             # create Answer
             answer = Answer(question=question, time_received=trecv, answer=answers[question_name], user=user)
+            db.session.add(answer)
             ret_answers.append(answer)
 
-    # flush to get ids assigned before rendering
-    flush()
-    logging.info("add_answers_for_user: add answers for %s", user.email)
+    db.session.commit()
+
     ranswers = {'count': len(ret_answers), 'data': [AnswerView.render(a) for a in ret_answers]}
     return jsonify(ranswers), 201
 
 
 # get answer statistics for user
 @app.route('/users/answers/counts', methods=['GET'])
-@db_session
 @jwt_required
 def answer_counts_for_user():
-    logging.info("in /users/answers/counts[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in answer_counts_for_user[GET]")
 
     # authenticate user
     user = check_user(('viuser',))
 
-    answers = user.answers
-
-    idx = None
-    try:
-        # get index
-        idx = Index[index_id]
-    except ObjectNotFound:
+    # get index
+    idx = db.session.query(Index).get(app.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
-    answers = answers.filter(lambda a: idx in a.indexes)
 
-    counts = {index_id: {'total': 0, 'answered': 0}}
-    for c in idx.index_components:
-        counts[c.name] = {'total': 0, 'answered': 0}
-        for q in c.questions:
-            counts[c.name]['total'] += 1
-            counts[index_id]['total'] += 1
-            qanswers = answers.filter(lambda a: a.question == q)
-            if len(qanswers) > 0:
-                counts[c.name]['answered'] += 1
-                counts[index_id]['answered'] += 1
+    questions = db.session.query(Question).join((IndexSubComponent, Question.index_sub_components)).join(IndexComponent)
+    questions = questions.filter(IndexComponent.index_name == idx.name).all()
 
-    logging.info("answer_counts_for_user: counted answers for %s", user.email)
+    counts = {}
+    counts[idx.name] = {'total': 0, 'answered': 0}
+    for q in questions:
+        # number of unanswered question
+        answers = db.session.query(Answer).filter(Answer.user_id == user.id).filter(Answer.question_name == q.name).count()
+        for isc in q.index_sub_components:
+            if isc.indexcomponent_name not in counts:
+                counts[isc.indexcomponent_name] = {'total': 0, 'answered': 0}
+            counts[isc.indexcomponent_name]['total'] += 1
+            counts[idx.name]['total'] += 1
+            if answers > 0:
+                counts[isc.indexcomponent_name]['answered'] += 1
+                counts[idx.name]['answered'] += 1
+
     ret_answers = {'count': 1, 'data': [counts]}
     return jsonify(ret_answers)
 
@@ -679,30 +669,26 @@ def answer_counts_for_user():
 # get results for user
 # filters as url parameters - as-of-time
 @app.route('/users/results', methods=['GET'])
-@db_session
 @jwt_required
 def results_for_user():
-    logging.info("in /users/results[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in results_for_user[GET]")
     trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
     user = check_user(('viuser',))
     results = user.results
 
-    idx = None
-    try:
-        # get index
-        idx = Index[index_id]
-    except ObjectNotFound:
+    # get index
+    idx = db.session.query(Index).get(app.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
+    results = db.session.query(Result).filter(Result.user_id == user.id).filter(Result.index_name == idx.name)
     # this parameter can be a datetime string or not provided
     aod = request.args.get('as-of-time', type=str_to_datetime, default=trecv)
     numpts = request.args.get('numpts', type=int, default=1)
-    results = results.filter(lambda r: r.index == idx and r.time_generated <= aod).order_by(
-        lambda r: desc(r.time_generated))[:numpts]
-
-    logging.info("results_for_user: fetched results for %s", user.email)
+    results = results.filter(Result.time_generated <= aod).order_by(Result.time_generated.desc()).limit(numpts)
     ret_results = [ResultView.render(r) for r in results]
     rresults = {'count': len(ret_results), 'data': ret_results}
     return jsonify(rresults)
@@ -710,10 +696,10 @@ def results_for_user():
 
 # calc new index for user
 @app.route('/users/results', methods=['POST'])
-@db_session
 @jwt_required
 def create_index_for_user():
-    logging.info("in /users/results[POST]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in create_index_for_user[POST]")
     trecv = datetime.utcnow().replace(microsecond=0)
 
     # authenticate user
@@ -730,27 +716,28 @@ def create_index_for_user():
     else:
         aod = str_to_datetime(data['as-of-time'])
 
-    idx = None
-    try:
-        # get index
-        idx = Index[index_id]
-    except ObjectNotFound:
+    aod = trecv
+
+    # get index
+    idx = db.session.query(Index).get(app.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
 
-    questions = idx.questions
+    questions = db.session.query(Question).join((IndexSubComponent, Question.index_sub_components)).join(IndexComponent)
+    questions = questions.filter(IndexComponent.index_name == idx.name)
     answers = {}
     found_at_least_one = False
     # questions now holds all the questions defined
     # map questions by name and create null answer for each question
     for question in questions:
-        answers[question.name] = None
-        # get the latest answer for this question and user
-        lanswers = question.answers.filter(
-            lambda a: a.user == user and a.time_received <= aod).order_by(
-            lambda a: desc(a.time_received))[:1]
-        if lanswers:
-            found_at_least_one = True
-            answers[question.name] = lanswers[0]
+        if not question.name in answers:
+            answers[question.name] = None
+            # get the latest answer for this question and user
+            lanswers = db.session.query(Answer).filter(Answer.user_id == user.id).filter(Answer.time_received <= aod)
+            lanswer = lanswers.filter(Answer.question == question).order_by(Answer.time_received.desc()).limit(1).first()
+            if lanswer:
+                found_at_least_one = True
+                answers[question.name] = lanswer
 
     if not found_at_least_one:
         # no answers in db
@@ -760,7 +747,6 @@ def create_index_for_user():
 
     bdate = user.birth_date
     # calculate score
-    logging.info('create_index_for_user: creating index for %s', user.email)
     # add birthdate to answers
     ret_answers['BirthDate'] = bdate.strftime("%Y-%m-%d")
     ret_answers['Gender'] = user.gender
@@ -768,7 +754,6 @@ def create_index_for_user():
 
     # create the result linked to index
     logging.info("create_index_for_user: creating Result for %s", user.email)
-
     res = Result(time_generated=aod, user=user, points=score['INDEX'],
                  maxforanswered=score['MAXFORANSWERED'], index=idx)
 
@@ -776,23 +761,24 @@ def create_index_for_user():
     logging.info("create_index_for_user: Updating Answers - linking to Result for %s", user.email)
     for answer in answers.values():
         if answer:
-            res.answers.add(answer)
+            res.answers.append(answer)
+            answer.results.append(res)
 
     # create and link index components
     logging.info("create_index_for_user: Saving Result Components for %s", user.email)
     for icname, icscore in score['COMPONENTS'].items():
-        idxcomp = idx.index_components.filter(lambda i: i.name == icname).get()
         ic = ResultComponent(points=icscore['POINTS'],
-                             maxforanswered=icscore['MAXFORANSWERED'], result=res, index_component=idxcomp)
+                             maxforanswered=icscore['MAXFORANSWERED'], result=res, indexcomponent_name=icname)
+        res.result_components.append(ic)
         for scname, scscore in icscore['COMPONENTS'].items():
-            idxsubcomp = idxcomp.index_sub_components.filter(lambda i: i.name == scname).get()
-            ResultSubComponent(points=scscore['POINTS'],
-                               maxforanswered=scscore['MAXFORANSWERED'], result_component=ic,
-                               index_sub_component=idxsubcomp)
+            rsc = ResultSubComponent(points=scscore['POINTS'],
+                                     maxforanswered=scscore['MAXFORANSWERED'], result_component=ic,
+                                     indexsubcomponent_name=scname)
+            ic.result_sub_components.append(rsc)
 
-    logging.info("create_index_for_user: created index for %s", user.email)
-    # flush to get ids assigned before rendering
-    flush()
+    db.session.add(res)
+    db.session.commit()
+
     rresults = {'count': 1, 'data': [ResultView.render(res)]}
     return jsonify(rresults), 201
 
@@ -802,217 +788,127 @@ def create_index_for_user():
 #
 
 @app.route('/users/recommendations/<component_name>', methods=['GET'])
-@db_session
 @jwt_required
 def get_recommendations_for_result(component_name):
-    logging.info("in /users/recommendations/%s[GET]", component_name)
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_recommendations_for_result[GET]")
+
     # authenticate user
     user = check_user(('viuser',))
 
+    trecv = datetime.utcnow().replace(microsecond=0)
     recommendations = []
 
-    # get latest result
-    result = None
-    results = user.results
-
-    idx = None
-    try:
-        # get index
-        idx = Index[index_id]
-    except ObjectNotFound:
+    idx = db.session.query(Index).get(app.config['INDEX'])
+    if not idx:
         raise VI404Exception("No Index with the specified id was found.")
-    results = results.filter(lambda r: r.index == idx)
 
-    if results:
-        logging.info("get_recommendations: found results for %s", user.email)
-        # this parameter can be a datetime string or not provided
-        # pretty much required for useful answers unless question is specified
-        aod = request.args.get('as-of-time', type=str_to_datetime)
-        if not aod:
-            # use current time
-            aod = datetime.utcnow().replace(microsecond=0)
-        logging.info("get_recommendations: filtering results for %s by %s", user.email, aod)
-        results = results.filter(
-            lambda r: r.time_generated <= aod).order_by(
-            lambda r: desc(r.time_generated))[:1]
-        result = results[0]
-        if not result:
-            # user has no results
-            logging.error("User has no results meeting the criteria.")
-            raise VI404Exception("User has no results meeting the criteria.")
+    results = db.session.query(Result).filter(Result.user_id == user.id).filter(Result.index_name == idx.name)
+    results = results.filter(Result.time_generated <= trecv).order_by(Result.time_generated.desc()).limit(1)
+    result = results.first()
+    if not result:
+        # user has no results
+        logging.error("User has no results meeting the criteria.")
+        raise VI404Exception("User has no results meeting the criteria.")
 
-        # so here we generate a block of text representing our recommendations for the given component of the latest result
-        # first we check for unanswered questions - if above a certain threshold recommend answering more questions
-        # then we look at each subcomponent and filter for those where points are below a certain threshold of maxanswered
-        # We pick the three worst and provide recommendations for those
+    # so here we generate a block of text representing our recommendations for the given component of the latest result
+    # first we check for unanswered questions - if above a certain threshold recommend answering more questions
+    # then we look at each subcomponent and filter for those where points are below a certain threshold of maxanswered
+    # We pick the three worst and provide recommendations for those
 
-        # get specified component
-        components = result.result_components.select(lambda c: c.name == component_name)[:]
-        if not components:
-            # component name in URL not correct
-            logging.error("in recommendations - invalid category specified, %s", component_name)
-            raise VI404Exception("Invalid category specified, %s" % component_name)
-        component = components[0]
+    # get specified component
+    components = db.session.query(ResultComponent).options(joinedload(ResultComponent.index_component), joinedload(ResultComponent.result_sub_components))
+    components = components.filter(ResultComponent.result_id == result.id)
+    components = components.filter(ResultComponent.indexcomponent_name == component_name)
+    component = components.one_or_none()
+    if not component:
+        # component name in URL not correct
+        logging.error("in recommendations - invalid category specified, %s", component_name)
+        raise VI404Exception("Invalid category specified, %s" % component_name)
 
-        aratio = component.maxforanswered / component.maxpoints
-        logging.info("get_recommendations: found component %s for %s", component.name, user.email)
-        if aratio < .5:
-            # answer more questions
-            logging.info("get_recommendations: generating recommendation for %s", component.name)
-            recommendations.append({'type': 'Recommendation',
-                                    'component': component.name,
-                                    'text': 'One of the best ways to increase your Vitality Index score and make it more accurate is to answer more questions'})
+    aratio = component.maxforanswered / component.index_component.maxpoints
+    logging.info("get_recommendations: found component %s with aratio %f for %s", component.indexcomponent_name, aratio, user.email)
+    if aratio < .5:
+        # answer more questions
+        logging.info("get_recommendations: generating recommendation for %s", component_name)
+        recommendations.append({'type': 'Recommendation',
+                                'component': component_name,
+                                'text': 'One of the best ways to increase your Vitality Index score and make it more accurate is to answer more questions'})
 
-        # look at the subcomponents
-        # order them by % of maxforanswered points ascending
-        # grab worst 3
-        subs = component.result_sub_components
-        logging.info("get_recommendations: found %d sub components for %s", subs.count(), user.email)
-        subs = subs.filter(lambda s: s.maxforanswered > 0).order_by(lambda s: float(s.points) / float(s.maxforanswered))
-        count = 0
-        for sub in subs:
-            if count >= 3:
-                # get 3 recommendations
-                break
-            logging.info(
-                "get_recommendations: generating recommendation for %s", sub.name)
-            if sub.index_sub_component.recommendation:
-                logging.info(
-                    "get_recommendations: adding recommendation for %s", sub.name)
-                recommendations.append({'type': 'Recommendation',
-                                    'component': component.name,
-                                    'text': sub.index_sub_component.recommendation})
-                count += 1
-            else:
-                logging.info(
-                    "get_recommendations: empty recommendation for %s", sub.name)
+    # look at the subcomponents
+    # order them by % of maxforanswered points ascending
+    # grab worst 3
+    subs = db.session.query(ResultSubComponent).join(IndexSubComponent)
+    subs = subs.filter(ResultSubComponent.resultcomponent_id == component.id)
+    # non empty recommendation
+    subs = subs.filter(IndexSubComponent.recommendation != '')
+    # some questions answered
+    subs = subs.filter(ResultSubComponent.maxforanswered > 0)
+    subs = subs.order_by(cast(ResultSubComponent.points, db.Float) / cast(ResultSubComponent.maxforanswered, db.Float))
+    subs = subs.limit(3)
+    for sub in subs:
+        logging.info("get_recommendations: adding recommendation for %s", sub.indexsubcomponent_name)
+        recommendations.append({'type': 'Recommendation',
+                                'component': component_name,
+                                'text': sub.index_sub_component.recommendation})
 
-    logging.info("get_recommendations_for_result: recommendations for %s", user.email)
     return jsonify({'count': len(recommendations), 'data': recommendations})
-
-
-#
-# answer methods
-#
-
-# get answer
-@app.route('/answers/<int:answer_id>', methods=['GET'])
-@db_session
-@jwt_required
-def get_answer(answer_id):
-    logging.info("in /answers/<answer_id>[GET]")
-    user = check_user(('viuser',))
-    answer = None
-    try:
-        answer = Answer[answer_id]
-    except ObjectNotFound:
-        # no answer with this id
-        raise VI404Exception("No Answer with specified id.")
-
-    if answer.user != user:
-        # resource exists but is not owned by, and therefore not viewable by, user
-        raise VI403Exception("User does not have permission.")
-
-    logging.info("get_answer: got answer for %s", user.email)
-    ranswers = {'count': 1, 'data': [AnswerView.render(answer)]}
-    return jsonify(ranswers)
-
-
-# get results that used an answer
-@app.route('/answers/<int:answer_id>/results', methods=['GET'])
-@db_session
-@jwt_required
-def get_answer_results(answer_id):
-    logging.info("in /answers/<answer_id>/results[GET]")
-    user = check_user(('viuser',))
-    answer = None
-    try:
-        answer = Answer[answer_id]
-    except ObjectNotFound:
-        # no answer with this id
-        raise VI404Exception("No Answer with specified id.")
-
-    if answer.user != user:
-        # resource exists but is not owned by, and therefore not viewable by, user
-        raise VI403Exception("User does not have permission.")
-
-    logging.info("get_answer_results: got results for %s", user.email)
-    rresults = {'count': len(answer.results), 'data': [ResultView.render(r) for r in answer.results]}
-    return jsonify(rresults)
-
-
-#
-# result methods
-#
 
 
 # get result
 @app.route('/results/<int:result_id>', methods=['GET'])
-@db_session
 @jwt_required
 def get_result(result_id):
-    logging.info("in /results/<result_id>[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_result[GET]")
     user = check_user(('viuser',))
 
-    result = None
-    try:
-        result = Result[result_id]
-    except ObjectNotFound:
+    result = db.session.query(Result).get(result_id)
+    if not result:
         # no result with this id
         raise VI404Exception("No Result with specified id.")
 
     if result.user != user:
         # resource exists but is not owned by, and therefor enot viewable by, user
         raise VI403Exception("User does not have permission.")
-
-    logging.info("get_result: got result for %s", user.email)
     rresults = {'count': 1, 'data': [ResultView.render(result)]}
     return jsonify(rresults)
 
 
 # get result component
 @app.route('/results/<int:result_id>/components/<int:component_id>', methods=['GET'])
-@db_session
 @jwt_required
 def get_result_component(result_id, component_id):
-    logging.info("in /results/%s/components/%s[GET]", result_id, component_id)
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_result-component[GET]")
     # authenticate user
     user = check_user(('viuser',))
-    result = None
-    try:
-        result = Result[result_id]
-    except ObjectNotFound:
+    result = db.session.query(Result).get(result_id)
+    if not result:
         # no result with this id
         raise VI404Exception("No Result with specified id.")
     if result.user != user:
         # resource exists but is not owned by, and therefor enot viewable by, user
         raise VI403Exception("User does not have permission.")
-    component = None
-    try:
-        component = ResultComponent[component_id]
-    except ObjectNotFound:
+    component = db.session.query(ResultComponent).get(component_id)
+    if not component:
         # Component does not exist
-        raise VIServiceException(404, "no ResultComponent with specified id")
+        raise VI404Exception("no ResultComponent with specified id")
     if component.result != result:
-        raise VIServiceException(404, "no ResultComponent with specified id in this resource tree")
-
-    logging.info("get_result_components: got component for %s", user.email)
+        raise VI404Exception("no ResultComponent with specified id in this resource tree")
     rresults = {'count': 1, 'data': [ResultComponentView.render(component)]}
     return jsonify(rresults)
 
 
 # get answers that went into a result
 @app.route('/results/<int:result_id>/answers', methods=['GET'])
-@db_session
 @jwt_required
 def get_result_answers(result_id):
-    logging.info("in /results/%s/answers[GET]", result_id)
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_result_answers[GET]")
     user = check_user(('viuser',))
-
-    result = None
-    try:
-        result = Result[result_id]
-    except ObjectNotFound:
+    result = db.session.query(Result).options(joinedload(Result.answers)).get(result_id)
+    if not result:
         # no result with this id
         raise VI404Exception("No Result with specified id.")
 
@@ -1020,7 +916,6 @@ def get_result_answers(result_id):
         # resource exists but is not owned by, and therefor enot viewable by, user
         raise VI403Exception("User does not have permission.")
 
-    logging.info("get_result_answers: got answers for %s", user.email)
     ranswers = {'count': len(result.answers), 'data': [AnswerView.render(a) for a in result.answers]}
     return jsonify(ranswers)
 
@@ -1033,11 +928,12 @@ def get_result_answers(result_id):
 # age, gender, location, component
 # noinspection PyTypeChecker
 @app.route('/statistics', methods=['GET'])
-@db_session
 @jwt_required
 def get_statistics():
-    logging.info("in /statistics[GET]")
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_statistics[GET]")
     trecv = datetime.utcnow().replace(microsecond=0)
+    td = date.today()
     # authenticate user
     user = check_user(('viuser',))
 
@@ -1045,92 +941,44 @@ def get_statistics():
     gender = request.args.get('gender')
     region = request.args.get('region')
 
+    result = None
+    vgs = db.session.query(func.avg(Result.points), func.avg(Result.maxforanswered)).join(User)
+    if gender:
+        vgs = vgs.filter(User.gender == gender)
     if agerange:
-        if gender:
-            # age range is string like "x-y"
-            ages = agerange.split('-')
-            dplus = date.today() - timedelta(days=int(ages[0]) * 365)
-            dminus = date.today() - timedelta(days=int(ages[1]) * 365)
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u and u.gender == gender
-                         and between(u.birth_date, dminus, dplus)
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-        else:
-            # age range is string like "x-y"
-            ages = agerange.split('-')
-            dplus = date.today() - timedelta(days=int(ages[0]) * 365)
-            dminus = date.today() - timedelta(days=int(ages[1]) * 365)
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u
-                         and between(u.birth_date, dminus, dplus)
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-    else:
-        if gender:
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u and u.gender == gender
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-        else:
-            # noinspection PyTypeChecker
-            vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                         for r in Result for u in User
-                         if r.user == u
-                         and r.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-
-    if vgs:
+        # age range is string like "x-y"
+        ages = agerange.split('-')
+        dplus = td - timedelta(days=int(ages[0]) * 365)
+        dminus = td - timedelta(days=int(ages[1]) * 365)
+        vgs = vgs.filter(User.birth_date.between(dminus, dplus))
+    vg = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(Result.user_id == User.id).correlate(User)).first()
+    if vg:
         result = {
             'type': 'Result',
             'attributes': {
-                'maxforanswered': vgs[0][2],
+                'maxforanswered': vg[1],
                 'maxpoints': 1000,
                 'name': 'Vitality Index',
-                'points': vgs[0][1],
+                'points': vg[0],
                 'time_generated': trecv.strftime("%Y-%m-%d-%H-%M-%S"),
                 'result_components': []
             }
         }
 
+        vgs = db.session.query(IndexComponent.name,
+                               func.avg(ResultComponent.points),
+                               func.avg(ResultComponent.maxforanswered)).join(Result).join(User).join(IndexComponent).group_by(IndexComponent.name)
         if agerange:
-            if gender:
-                # age range is string like "x-y"
-                ages = agerange.split('-')
-                dplus = date.today() - timedelta(days=int(ages[0]) * 365)
-                dminus = date.today() - timedelta(days=int(ages[1]) * 365)
-                # noinspection PyTypeChecker
-                vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u and u.gender == gender
-                             and between(u.birth_date, dminus, dplus)
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-            else:
-                # age range is string like "x-y"
-                ages = agerange.split('-')
-                dplus = date.today() - timedelta(days=int(ages[0]) * 365)
-                dminus = date.today() - timedelta(days=int(ages[1]) * 365)
-                # noinspection PyTypeChecker
-                vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u
-                             and between(u.birth_date, dminus, dplus)
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-        else:
-            if gender:
-                # noinspection PyTypeChecker
-                vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u and u.gender == gender
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
-            else:
-                # noinspection PyTypeChecker
-                vgs = select((r.name, avg(r.points), avg(r.maxforanswered))
-                             for r in ResultComponent for u in User
-                             if r.result.user == u
-                             and r.result.time_generated == max(r2.time_generated for r2 in Result if r2.user == u))[:]
+            # age range is string like "x-y"
+            ages = agerange.split('-')
+            dplus = td - timedelta(days=int(ages[0]) * 365)
+            dminus = td - timedelta(days=int(ages[1]) * 365)
+            vgs = vgs.filter(User.birth_date.between(dminus, dplus))
+
+        if gender:
+            vgs = vgs.filter(User.gender == gender)
+
+        vgs = vgs.filter(Result.time_generated == db.session.query(func.max(Result.time_generated)).filter(Result.user_id == User.id).correlate(User))
 
         for vg in vgs:
             rc = {
@@ -1143,11 +991,50 @@ def get_statistics():
             }
             result['attributes']['result_components'].append(rc)
 
-        logging.info("get_statistics: got statistics for %s", user.email)
         return jsonify({'count': 1, 'data': [result]})
     else:
-        logging.info("get_statistics: got statistics for %s", user.email)
         return jsonify({'count': 0, 'data': []})
+
+
+# get answer
+@app.route('/answers/<int:answer_id>', methods=['GET'])
+@jwt_required
+def get_answer(answer_id):
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_answer[GET]")
+    user = check_user(('viuser',))
+    answer = db.session.query(Answer).get(answer_id)
+    if not answer:
+        # no answer with this id
+        raise VI404Exception("No Answer with specified id.")
+
+    if answer.user != user:
+        # resource exists but is not owned by, and therefore not viewable by, user
+        raise VI403Exception("User does not have permission.")
+
+    ranswers = {'count': 1, 'data': [AnswerView.render(answer)]}
+    return jsonify(ranswers)
+
+
+# get results that used an answer
+@app.route('/answers/<int:answer_id>/results', methods=['GET'])
+@jwt_required
+def get_answer_results(answer_id):
+    logging.info("handling request to %s", request.url)
+    logging.info("in get_answer_results[GET]")
+    user = check_user(('viuser',))
+    answer = db.session.query(Answer).options(joinedload(Answer.results)).get(answer_id)
+    if not answer:
+        # no answer with this id
+        raise VI404Exception("No Answer with specified id.")
+
+    if answer.user != user:
+        # resource exists but is not owned by, and therefore not viewable by, user
+        raise VI403Exception("User does not have permission.")
+
+    rresults = {'count': len(answer.results), 'data': [ResultView.render(r) for r in answer.results]}
+    return jsonify(rresults)
+
 
 
 if __name__ == '__main__':

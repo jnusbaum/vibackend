@@ -1,74 +1,81 @@
-# data model
 from vidb.models import *
+
 
 class UserView:
     @classmethod
     def render(cls, user: User):
-        dself = {'attributes': user.to_dict(with_lazy=True, exclude=['pword', 'id']),
+        dself = {'attributes': {'email': user.email,
+                                'first_name': user.first_name,
+                                'birth_date': user.birth_date.strftime("%Y-%m-%d"),
+                                'gender': user.gender,
+                                'postal_code': user.postal_code,
+                                'role': user.role,
+                                'last_login': user.last_login.strftime("%Y-%m-%d-%H-%M-%S") if user.last_login else None,
+                                'last_notification': user.last_notification.strftime("%Y-%m-%d-%H-%M-%S") if user.last_notification else None
+                                },
                  'id': str(user.id),
                  'type': 'User',
                  'self': "/users",
                  'relationships': {
                      'results': "/users/results",
                      'answers': "/users/answers"
-                 }}
-        # convert birthdate to string in our format
-        dself['attributes']['birth_date'] = dself['attributes']['birth_date'].strftime("%Y-%m-%d")
-        if dself['attributes']['last_login']:
-            dself['attributes']['last_login'] = dself['attributes']['last_login'].strftime("%Y-%m-%d-%H-%M-%S")
+                     }
+                 }
         return dself
 
 
 class AnswerView:
     @classmethod
     def render(cls, answer: Answer):
-        dself = {'attributes': answer.to_dict(with_lazy=True, exclude=['id', 'user']),
+        dself = {'attributes': {'time_received': answer.time_received.strftime("%Y-%m-%d-%H-%M-%S"),
+                                'answer': answer.answer,
+                                'question': answer.question_name
+                                },
                  'id': str(answer.id),
                  'type': 'Answer',
                  'self': "/answers/{0}".format(answer.id),
                  'relationships': {
                      'user': "/answers/{0}/user".format(answer.id),
                      'results': "/answers/{0}/results".format(answer.id)
-                 }}
-        # convert time_received to string in our format
-        dself['attributes']['time_received'] = dself['attributes']['time_received'].strftime("%Y-%m-%d-%H-%M-%S")
+                     }
+                 }
         return dself
 
 
 class ResultComponentView:
     @classmethod
-    def render(cls, result: ResultComponent):
-        dself = {'attributes': result.to_dict(with_lazy=True, exclude=['id', 'result', 'index_component']),
-                 'id': str(result.id),
+    def render(cls, rc: ResultComponent):
+        dself = {'attributes': {'points': rc.points,
+                                'maxforanswered': rc.maxforanswered,
+                                'name': rc.indexcomponent_name,
+                                'maxpoints': rc.index_component.maxpoints
+                                },
+                 'id': str(rc.id),
                  'type': 'ResultComponent',
-                 'self': "/results/{0}/components/{1}".format(result.result.id, result.id),
+                 'self': "/results/{0}/components/{1}".format(rc.result_id, rc.id),
                  'relationships': {
-                     'result': "/results/{0}".format(result.result.id),
-                 }}
-        # add index component name as attribute
-        dself['attributes']['name'] = result.name
-        # add maxpoints from index as attribute
-        dself['attributes']['maxpoints'] = result.index_component.maxpoints
+                     'result': "/results/{0}".format(rc.result_id)
+                     }
+                 }
         return dself
 
 
 class ResultView:
     @classmethod
     def render(cls, result: Result):
-        dself = {'attributes': result.to_dict(with_lazy=True, exclude=['id', 'user', 'index']),
+        dself = {'attributes': {'time_generated': result.time_generated.strftime("%Y-%m-%d-%H-%M-%S"),
+                                'points': result.points,
+                                'maxforanswered': result.maxforanswered,
+                                'maxpoints': result.index.maxpoints,
+                                'result_components': [ResultComponentView.render(rc) for rc in result.result_components],
+                                'name': result.index_name
+                                },
                  'id': str(result.id),
                  'type': 'Result',
                  'self': "/results/{0}".format(result.id),
                  'relationships': {
                      'user': "/users",
                      'answers': "/results/{0}/answers".format(result.id)
+                    }
                  }
-                 }
-        # add index name as attribute
-        dself['attributes']['name'] = result.name
-        # add maxpoints from indexc as attribute
-        dself['attributes']['maxpoints'] = result.index.maxpoints
-        # convert time to string in our format
-        dself['attributes']['time_generated'] = dself['attributes']['time_generated'].strftime("%Y-%m-%d-%H-%M-%S")
-        dself['attributes']['result_components'] = [ResultComponentView.render(rc) for rc in result.result_components]
         return dself
