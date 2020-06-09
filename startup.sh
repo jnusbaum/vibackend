@@ -1,0 +1,1 @@
+gunicorn --workers=4 --timeout 600 --access-logfile '-' --error-logfile '-' --bind=0.0.0.0:8000 --chdir=/home/site/wwwroot app:app

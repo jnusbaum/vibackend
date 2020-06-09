@@ -13,7 +13,7 @@ class Config(object):
     DBUSER = os.environ.get('DBUSER') or 'vi@viback'
     DBPWD = os.environ.get('DBPWD') or 'foobar'
     DBDRIVER = '{ODBC Driver 17 for SQL Server}'
-    cstring = 'Driver={driver};Server=tcp:{dbhost},1433;Database={database};Uid={dbuser};Pwd={dbpwd};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
+    cstring = 'Driver={driver};Server=tcp:{dbhost},1433;Database={database};Uid={dbuser};Pwd={dbpwd};Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;'
     cstring = cstring.format(driver=DBDRIVER, dbhost=DBHOST, database=DATABASE, dbuser=DBUSER, dbpwd=DBPWD)
     cstring = parse.quote_plus(cstring)
     SQLALCHEMY_DATABASE_URI = "mssql+pyodbc:///?odbc_connect=%s" % cstring
@@ -23,5 +23,5 @@ class Config(object):
     IDANGEROUSKEY = os.environ.get('ITSDANGEROUSKEY') or 'you-will-never-guess'
 
     INDEX = os.environ.get('INDEX') or "Vitality Index"
-    WWWHOST = 'localhost'
+    WWWHOST = '0.0.0.0'
     WWWPORT = 5000
