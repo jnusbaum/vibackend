@@ -395,6 +395,10 @@ def new_user():
     except KeyError:
         logging.error("new_user: gender must be provided")
         raise VI400Exception("Gender must be provided.")
+    # validate gender
+    if gender not in ('Male', 'Female', 'Other'):
+        logging.error(f"new_user: gender is {gender}, not one of Male, Female, Other")
+        raise VI400Exception("Gender not one of Male, Female, Other.")
     try:
         first_name = credentials['firstname']
     except KeyError:
