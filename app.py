@@ -34,7 +34,7 @@ from typing import Tuple, Union
 from flask import jsonify, request
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask_jwt_extended import (
-    JWTManager, jwt_required, jwt_refresh_token_required, decode_token, get_jwt_identity, 
+    JWTManager, jwt_required, decode_token, get_jwt_identity,
     create_access_token, create_refresh_token
 )
 from sqlalchemy import func, cast, literal
@@ -268,7 +268,6 @@ def reset_password_finish():
         raise VI400Exception("Please provide password.")
     # decode token
     s = URLSafeTimedSerializer(app.config['IDANGEROUSKEY'])
-    user_id = None
     try:
         user_id = s.loads(token, max_age=1800)
     except SignatureExpired:
@@ -287,7 +286,7 @@ def reset_password_finish():
     user.pword = argon2.hash(password)
     for token in user.tokens:
         token.revoked = True
-    db.session.add(user) # should cause tokens to be added/saved too
+    db.session.add(user)  # should cause tokens to be added/saved too
     db.session.commit()
     return jsonify(
         {'count': 1, 'data': [{'type': 'Message', 'msg': "Successfully updated password for {}".format(user.email)}]})
@@ -321,7 +320,7 @@ def login():
 # Refresh token endpoint. This will generate a new access token from
 # the refresh token.
 @app.route('/refresh', methods=['POST'])
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def refresh():
     logging.info("handling request to %s", request.url)
     logging.info("in refresh[POST]")
@@ -357,7 +356,7 @@ def logout():
 
 
 # Define our callback function to check if a token has been revoked or not
-@jwt.token_in_blacklist_loader
+@jwt.token_in_blocklist_loader
 def check_if_token_revoked(decoded_token):
     return is_token_revoked(decoded_token)
 
@@ -366,12 +365,12 @@ def check_if_token_revoked(decoded_token):
 # must have token
 # must be vivendor to create viuser
 @app.route('/users', methods=['POST'])
-@jwt_required
+@jwt_required()
 def new_user():
     logging.info("handling request to %s", request.url)
     logging.info("in new_user[POST]")
 
-    user = check_user(('vivendor',))
+    check_user(('vivendor',))
     credentials = None
     if request.is_json:
         credentials = request.get_json()
@@ -409,7 +408,6 @@ def new_user():
     except KeyError:
         logging.error("new_user: password must be provided")
         raise VI400Exception("Password must be provided.")
-    bdate = None
     try:
         birthdate = credentials['birthdate']
         bdate = datetime.strptime(birthdate, "%Y-%m-%d").date()
@@ -439,7 +437,7 @@ def new_user():
 # fresh token required
 # must be owner of data
 @app.route('/users', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_user():
     logging.info("handling request to %s", request.url)
     logging.info("in get_user[GET]")
@@ -450,7 +448,7 @@ def get_user():
 
 # modify user data
 @app.route('/users', methods=['PATCH'])
-@jwt_required
+@jwt_required()
 def modify_user():
     logging.info("handling request to %s", request.url)
     logging.info("in modify_user[PATCH]")
@@ -511,7 +509,7 @@ def modify_user():
 
 # delete user data
 @app.route('/users', methods=['DELETE'])
-@jwt_required
+@jwt_required()
 def delete_user():
     logging.info("handling request to %s", request.url)
     logging.info("in delete_user[DELETE]")
@@ -531,7 +529,7 @@ def delete_user():
 # question - all answers for question ordered by time received desc
 # question and as-of-time - latest answer for question before time
 @app.route('/users/answers', methods=['GET'])
-@jwt_required
+@jwt_required()
 def answers_for_user():
     logging.info("handling request to %s", request.url)
     logging.info("in answers_for_user[GET]")
@@ -551,7 +549,6 @@ def answers_for_user():
     # if not provided answers for all questions (possibly qualified by index) are returned
     question_name = request.args.get('question')
     if question_name:
-        question = None
         question = db.session.query(Question).get(question_name)
         if not question:
             raise VI404Exception("No Question with the specified id was found.")
@@ -580,7 +577,7 @@ def answers_for_user():
 # add a new answer(s) for a user
 # answers in POST data
 @app.route('/users/answers', methods=['POST'])
-@jwt_required
+@jwt_required()
 def add_answers_for_user():
     logging.info("handling request to %s", request.url)
     logging.info("in add_answers_for_user[POST]")
@@ -636,7 +633,7 @@ def add_answers_for_user():
 
 # get answer statistics for user
 @app.route('/users/answers/counts', methods=['GET'])
-@jwt_required
+@jwt_required()
 def answer_counts_for_user():
     logging.info("handling request to %s", request.url)
     logging.info("in answer_counts_for_user[GET]")
@@ -652,8 +649,7 @@ def answer_counts_for_user():
     questions = db.session.query(Question).join((IndexSubComponent, Question.index_sub_components)).join(IndexComponent)
     questions = questions.filter(IndexComponent.index_name == idx.name).all()
 
-    counts = {}
-    counts[idx.name] = {'total': 0, 'answered': 0}
+    counts = {idx.name: {'total': 0, 'answered': 0}}
     for q in questions:
         # number of unanswered question
         answers = db.session.query(Answer).filter(Answer.user_id == user.id).filter(Answer.question_name == q.name).count()
@@ -673,7 +669,7 @@ def answer_counts_for_user():
 # get results for user
 # filters as url parameters - as-of-time
 @app.route('/users/results', methods=['GET'])
-@jwt_required
+@jwt_required()
 def results_for_user():
     logging.info("handling request to %s", request.url)
     logging.info("in results_for_user[GET]")
@@ -681,7 +677,6 @@ def results_for_user():
 
     # authenticate user
     user = check_user(('viuser',))
-    results = user.results
 
     # get index
     idx = db.session.query(Index).get(app.config['INDEX'])
@@ -700,7 +695,7 @@ def results_for_user():
 
 # calc new index for user
 @app.route('/users/results', methods=['POST'])
-@jwt_required
+@jwt_required()
 def create_index_for_user():
     logging.info("handling request to %s", request.url)
     logging.info("in create_index_for_user[POST]")
@@ -709,18 +704,16 @@ def create_index_for_user():
     # authenticate user
     user = check_user(('viuser',))
 
-    aod = None
     data = None
     if request.is_json:
         data = request.get_json()
+
     if not data:
         aod = trecv
     elif 'as-of-time' not in data:
         aod = trecv
     else:
         aod = str_to_datetime(data['as-of-time'])
-
-    aod = trecv
 
     # get index
     idx = db.session.query(Index).get(app.config['INDEX'])
@@ -734,7 +727,7 @@ def create_index_for_user():
     # questions now holds all the questions defined
     # map questions by name and create null answer for each question
     for question in questions:
-        if not question.name in answers:
+        if question.name not in answers:
             answers[question.name] = None
             # get the latest answer for this question and user
             lanswers = db.session.query(Answer).filter(Answer.user_id == user.id).filter(Answer.time_received <= aod)
@@ -792,7 +785,7 @@ def create_index_for_user():
 #
 
 @app.route('/users/recommendations/<component_name>', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_recommendations_for_result(component_name):
     logging.info("handling request to %s", request.url)
     logging.info("in get_recommendations_for_result[GET]")
@@ -861,7 +854,7 @@ def get_recommendations_for_result(component_name):
 
 # get result
 @app.route('/results/<int:result_id>', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_result(result_id):
     logging.info("handling request to %s", request.url)
     logging.info("in get_result[GET]")
@@ -881,7 +874,7 @@ def get_result(result_id):
 
 # get result component
 @app.route('/results/<int:result_id>/components/<int:component_id>', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_result_component(result_id, component_id):
     logging.info("handling request to %s", request.url)
     logging.info("in get_result-component[GET]")
@@ -906,7 +899,7 @@ def get_result_component(result_id, component_id):
 
 # get answers that went into a result
 @app.route('/results/<int:result_id>/answers', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_result_answers(result_id):
     logging.info("handling request to %s", request.url)
     logging.info("in get_result_answers[GET]")
@@ -932,20 +925,18 @@ def get_result_answers(result_id):
 # age, gender, location, component
 # noinspection PyTypeChecker
 @app.route('/statistics', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_statistics():
     logging.info("handling request to %s", request.url)
     logging.info("in get_statistics[GET]")
     trecv = datetime.utcnow().replace(microsecond=0)
     td = date.today()
     # authenticate user
-    user = check_user(('viuser',))
+    check_user(('viuser',))
 
     agerange = request.args.get('agerange')
     gender = request.args.get('gender')
-    region = request.args.get('region')
 
-    result = None
     vgs = db.session.query(func.avg(Result.points), func.avg(Result.maxforanswered)).join(User)
     if gender:
         vgs = vgs.filter(User.gender == gender)
@@ -1002,7 +993,7 @@ def get_statistics():
 
 # get answer
 @app.route('/answers/<int:answer_id>', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_answer(answer_id):
     logging.info("handling request to %s", request.url)
     logging.info("in get_answer[GET]")
@@ -1022,7 +1013,7 @@ def get_answer(answer_id):
 
 # get results that used an answer
 @app.route('/answers/<int:answer_id>/results', methods=['GET'])
-@jwt_required
+@jwt_required()
 def get_answer_results(answer_id):
     logging.info("handling request to %s", request.url)
     logging.info("in get_answer_results[GET]")
@@ -1038,7 +1029,6 @@ def get_answer_results(answer_id):
 
     rresults = {'count': len(answer.results), 'data': [ResultView.render(r) for r in answer.results]}
     return jsonify(rresults)
-
 
 
 if __name__ == '__main__':

@@ -9,11 +9,11 @@ class Config(object):
     JWT_BLACKLIST_ENABLED = True
     JWT_BLACKLIST_TOKEN_CHECKS = ['access', 'refresh']
     DBHOST = os.environ.get('DBHOST') or '192.168.0.134'
-    DATABASE = os.environ.get('DATABASE') or 'vibackend'
-    DBUSER = os.environ.get('DBUSER') or 'vi@viback'
-    DBPWD = os.environ.get('DBPWD') or 'foobar'
+    DATABASE = os.environ.get('DATABASE') or 'viback'
+    DBUSER = os.environ.get('DBUSER') or 'vi'
+    DBPWD = os.environ.get('DBPWD') or 'zaxxon'
     DBDRIVER = '{ODBC Driver 17 for SQL Server}'
-    cstring = 'Driver={driver};Server=tcp:{dbhost},1433;Database={database};Uid={dbuser};Pwd={dbpwd};Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;'
+    cstring = 'Driver={driver};Server=tcp:{dbhost},1433;Database={database};Uid={dbuser};Pwd={dbpwd};Connection Timeout=30;'
     cstring = cstring.format(driver=DBDRIVER, dbhost=DBHOST, database=DATABASE, dbuser=DBUSER, dbpwd=DBPWD)
     cstring = parse.quote_plus(cstring)
     SQLALCHEMY_DATABASE_URI = "mssql+pyodbc:///?odbc_connect=%s" % cstring
